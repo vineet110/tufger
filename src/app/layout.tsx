@@ -26,7 +26,7 @@ const instrument = Instrument_Sans({
 });
 
 export const metadata: Metadata = {
-  title: { default: "Tufger · Turf Bookings Manager", template: "%s · Tufger" },
+  title: { default: "Tufger · Turf Booking Manager", template: "%s · Tufger" },
   description: "Split turf bookings and collect every player's share over UPI without chasing anyone.",
 };
 
