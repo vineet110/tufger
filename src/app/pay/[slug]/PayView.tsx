@@ -146,7 +146,7 @@ export function PayView({ params }: { params: Promise<{ slug: string }> }) {
       </section>
 
       {entry && <PayPanel key={entry.id} b={b} entry={entry} onUpdate={setB} />}
-      </p>
+
       <SiteFooter className="mt-12 -mx-4 rounded-t-2xl" />
       <Toaster />
     </div>
