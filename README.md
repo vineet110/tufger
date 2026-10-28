@@ -55,6 +55,14 @@ One Vercel project runs both apps using [Vercel Services](https://vercel.com/doc
 
 Players then open `https://<your-project>.vercel.app/pay/<code>`.
 
+## Accounts
+
+- **Admin**: logs in on the Pavilion screen with the passcode. `ADMIN_PASSCODE` only creates the admin account on
+  the very first start; after that, change it in **Settings → Account**.
+- **Hosts** sign up with **Sign up as host**. Each host sees only their own grounds, bookings and players.
+- **Premium hosts** (upgraded by the admin in **Settings → Hosts**) also get Dugout and Scorebook, which ask for the
+  **Tufger key**. `TUFGER_KEY` is the starting key; the admin can change it in Settings.
+
 ## How it works
 
 1. **New booking**: pick a ground → date, time, duration → paste the WhatsApp list or upload

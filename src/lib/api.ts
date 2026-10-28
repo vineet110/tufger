@@ -4,10 +4,13 @@ import type {
   BookingSummary,
   Dashboard,
   Ground,
+  HostAdminRow,
   KhataDetail,
   KhataRow,
+  Me,
   PublicBill,
   PublicBooking,
+  PublicRules,
   RosterRow,
   Settings,
   Sport,
@@ -99,8 +102,21 @@ const json = (method: string, body?: unknown): RequestInit => ({
 });
 
 export const api = {
-  login: (passcode: string) => request<{ token: string }>("/auth/login", json("POST", { passcode })),
-  me: () => request<{ ok: true }>("/auth/me"),
+  login: (passcode: string) => request<Session>("/auth/login", json("POST", { passcode })),
+  hostLogin: (username: string, password: string) => request<Session>("/auth/host/login", json("POST", { username, password })),
+  hostSignup: (username: string, display_name: string, password: string) =>
+    request<Session>("/auth/host/signup", json("POST", { username, display_name, password })),
+  me: () => request<Me>("/auth/me"),
+  changePassword: (current: string, next: string) => request<Session>("/auth/password", json("PUT", { current, new: next })),
+
+  // site admin only
+  hosts: () => request<HostAdminRow[]>("/admin/hosts"),
+  createHost: (body: { username: string; display_name: string; password: string; role: "premium" | "host" }) =>
+    request<HostAdminRow>("/admin/hosts", json("POST", body)),
+  updateHost: (id: number, patch: { role?: "premium" | "host"; active?: boolean; password?: string }) =>
+    request<HostAdminRow>(`/admin/hosts/${id}`, json("PATCH", patch)),
+  setTufgerKey: (key: string) => request<{ ok: true }>("/admin/tufger-key", json("PUT", { key })),
+  publicRules: (host: string) => request<PublicRules>(`/public/rules?host=${encodeURIComponent(host)}`),
 
   dashboard: () => request<Dashboard>("/dashboard"),
   settings: () => request<Settings>("/settings"),
@@ -180,4 +196,9 @@ export interface SheetGameIn {
   duration_min: number;
   message: string;
   players: { name: string; phone: string | null; amount: number; paid: boolean; is_organizer: boolean }[];
+}
+
+export interface Session {
+  token: string;
+  me: Me;
 }

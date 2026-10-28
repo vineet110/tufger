@@ -6,6 +6,8 @@ export interface Settings {
   upi_id: string;
   payee_name: string;
   reminder_template: string;
+  house_refunds: string; // one rule per line; "" = Tufger defaults
+  house_last_minute: string;
 }
 
 export interface Ground {
@@ -87,6 +89,7 @@ export interface PublicBooking {
   base_amount: number;
   discount: number;
   notes: string;
+  host_username: string;
   organizer_name: string;
   upi_id: string;
   payee_name: string;
@@ -150,6 +153,7 @@ export interface Bill {
 }
 
 export interface PublicBill {
+  host_username: string;
   name: string;
   organizer_name: string;
   upi_id: string;
@@ -167,4 +171,26 @@ export interface Dashboard {
   awaiting_confirmation: number;
   players: number;
   next_game: BookingSummary | null;
+}
+
+export type Role = "admin" | "premium" | "host";
+
+export interface Me {
+  id: number;
+  username: string;
+  display_name: string;
+  role: Role;
+}
+
+export interface HostAdminRow extends Me {
+  active: boolean;
+  created_at: string;
+  bookings: number;
+  players: number;
+}
+
+export interface PublicRules {
+  host_name: string;
+  refunds: string;
+  last_minute: string;
 }

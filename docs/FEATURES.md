@@ -77,7 +77,7 @@ _Last updated: 2026-10-28_
 ## 4b. Site
 
 - [x] Footer on every page with Privacy, Refunds and Last-minute rules (/policies)
-- [ ] Let the organiser edit the house rules from Settings
+- [x] Each host edits their own Refunds and Last-minute rules in Settings; players see their host's rules
 
 ## 5. Organiser tools
 
@@ -87,7 +87,12 @@ _Last updated: 2026-10-28_
 - [x] Activity log per booking (claims, confirmations, edits)
 - [ ] Export a booking / ledger to Excel
 - [x] Free hosting setup: one Vercel project (Next.js + FastAPI services) on Neon
-- [ ] Multiple organisers / co-admins
+- [x] Host accounts: sign up / log in with username + password, each host's data kept separate
+- [x] Roles: admin (Pavilion passcode), premium host (Dugout + Scorebook with the Tufger key), host
+- [x] Admin panel: upgrade/downgrade hosts, create hosts, reset passwords, switch accounts off, change the Tufger key
+- [x] Change your own password / Pavilion passcode from Settings (signs out other devices)
+- [x] 5 wrong logins lock the account for 10 minutes
+- [ ] Forgot-password by email/OTP (for now the admin resets it)
 - [ ] Recurring bookings (every Sunday 7 AM)
 
 ## 6. Future / nice-to-have

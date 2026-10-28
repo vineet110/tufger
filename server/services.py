@@ -6,10 +6,14 @@ from models import AppSettings, Booking, Entry, Event, Player
 from roster import clean_name, normalize_phone
 
 
-def get_app_settings(db: Session) -> AppSettings:
-    row = db.get(AppSettings, 1)
+def get_app_settings(db: Session, host_id: int) -> AppSettings:
+    """A host's own settings row, created on first use."""
+    row = db.scalar(select(AppSettings).where(AppSettings.host_id == host_id))
     if row is None:
-        row = AppSettings(id=1)
+        from models import Host  # local import: Host lives next to AppSettings
+
+        host = db.get(Host, host_id)
+        row = AppSettings(host_id=host_id, organizer_name=host.display_name if host else "Organiser")
         db.add(row)
         db.commit()
     return row
@@ -19,29 +23,29 @@ def log(db: Session, booking: Booking, kind: str, message: str) -> None:
     db.add(Event(booking_id=booking.id, kind=kind, message=message))
 
 
-def resolve_player(db: Session, name: str, phone: str | None, keep_name: bool = False) -> Player:
-    """Find a squad member by phone (or by a unique name), else create one.
+def resolve_player(db: Session, host_id: int, name: str, phone: str | None, keep_name: bool = False) -> Player:
+    """Find one of this host's players by phone (or by a unique name), else create one.
 
     keep_name skips the name clean-up, for Team Sheet names like "Ganesh +1" or "Rishi (tt)".
     """
     phone = normalize_phone(phone)
     name = " ".join(name.split())[:120] if keep_name else (clean_name(name) or name.strip())
     if phone:
-        player = db.scalar(select(Player).where(Player.phone == phone))
+        player = db.scalar(select(Player).where(Player.host_id == host_id, Player.phone == phone))
         if player:
             return player
         # a known player who had no number yet: attach this one instead of creating a twin
         unnumbered = db.scalars(
-            select(Player).where(func.lower(Player.name) == name.lower(), Player.phone.is_(None))
+            select(Player).where(Player.host_id == host_id, func.lower(Player.name) == name.lower(), Player.phone.is_(None))
         ).all()
         if len(unnumbered) == 1:
             unnumbered[0].phone = phone
             return unnumbered[0]
     else:
-        matches = db.scalars(select(Player).where(func.lower(Player.name) == name.lower())).all()
+        matches = db.scalars(select(Player).where(Player.host_id == host_id, func.lower(Player.name) == name.lower())).all()
         if len(matches) == 1:
             return matches[0]
-    player = Player(name=name or "Player", phone=phone)
+    player = Player(host_id=host_id, name=name or "Player", phone=phone)
     db.add(player)
     db.flush()
     return player

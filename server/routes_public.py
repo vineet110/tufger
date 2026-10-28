@@ -16,7 +16,7 @@ def _booking(db: Session, slug: str) -> Booking:
     booking = db.scalar(
         select(Booking)
         .where(Booking.slug == slug)
-        .options(selectinload(Booking.entries).selectinload(Entry.player), selectinload(Booking.ground))
+        .options(selectinload(Booking.entries).selectinload(Entry.player), selectinload(Booking.ground), selectinload(Booking.host))
     )
     if booking is None:
         raise HTTPException(404, "This pay link doesn't exist")
@@ -24,7 +24,7 @@ def _booking(db: Session, slug: str) -> Booking:
 
 
 def _public(db: Session, booking: Booking) -> schemas.PublicBooking:
-    s = get_app_settings(db)
+    s = get_app_settings(db, booking.host_id)
     return schemas.PublicBooking(
         slug=booking.slug,
         ground_name=booking.ground_name,
@@ -37,6 +37,7 @@ def _public(db: Session, booking: Booking) -> schemas.PublicBooking:
         base_amount=booking.base_amount or booking.total_amount + booking.discount,
         discount=booking.discount,
         notes=booking.notes,
+        host_username=booking.host.username if booking.host else "",
         organizer_name=s.organizer_name,
         upi_id=s.upi_id,
         payee_name=s.payee_name or s.organizer_name,

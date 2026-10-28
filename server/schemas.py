@@ -15,7 +15,9 @@ class SettingsIO(BaseModel):
     organizer_name: str = Field(max_length=80)
     upi_id: str = Field(default="", max_length=120)
     payee_name: str = Field(default="", max_length=80)
-    reminder_template: str
+    reminder_template: str = Field(max_length=2000)
+    house_refunds: str = Field(default="", max_length=4000)  # one rule per line; "" = Tufger defaults
+    house_last_minute: str = Field(default="", max_length=4000)
 
 
 class GroundIn(BaseModel):
@@ -156,6 +158,7 @@ class PublicBooking(BaseModel):
     base_amount: int
     discount: int
     notes: str
+    host_username: str
     organizer_name: str
     upi_id: str
     payee_name: str
@@ -236,6 +239,7 @@ class BillOut(BaseModel):
 
 
 class PublicBill(BaseModel):
+    host_username: str
     name: str
     organizer_name: str
     upi_id: str
@@ -286,3 +290,63 @@ class SheetGameOut(BaseModel):
 
 class PhoneIn(BaseModel):
     phone: str = Field(min_length=10, max_length=20)
+
+
+# ---------- accounts ----------
+
+USERNAME_PATTERN = r"^[a-zA-Z0-9_.]{3,30}$"
+
+
+class HostLoginIn(BaseModel):
+    username: str = Field(min_length=1, max_length=30)
+    password: str = Field(min_length=1, max_length=200)
+
+
+class HostSignupIn(BaseModel):
+    username: str = Field(pattern=USERNAME_PATTERN)
+    display_name: str = Field(min_length=1, max_length=80)
+    password: str = Field(min_length=8, max_length=200)
+
+
+class Me(BaseModel):
+    id: int
+    username: str
+    display_name: str
+    role: Literal["admin", "premium", "host"]
+
+
+class TokenOut(BaseModel):
+    token: str
+    me: Me
+
+
+class PasswordChangeIn(BaseModel):
+    current: str = Field(min_length=1, max_length=200)
+    new: str = Field(min_length=8, max_length=200)
+
+
+class HostAdminRow(Me):
+    active: bool
+    created_at: datetime
+    bookings: int
+    players: int
+
+
+class HostCreateIn(HostSignupIn):
+    role: Literal["premium", "host"] = "premium"
+
+
+class HostPatch(BaseModel):
+    role: Literal["premium", "host"] | None = None
+    active: bool | None = None
+    password: str | None = Field(default=None, min_length=8, max_length=200)  # admin reset
+
+
+class VaultKeyIn(BaseModel):
+    key: str = Field(min_length=4, max_length=100)
+
+
+class PublicRules(BaseModel):
+    host_name: str
+    refunds: str
+    last_minute: str

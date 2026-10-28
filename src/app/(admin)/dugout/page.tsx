@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { copyText, toast } from "@/components/Toast";
+import { useMe } from "@/components/AdminShell";
 import { LockButton, VaultGate } from "@/components/VaultGate";
 import { ApiError, api } from "@/lib/api";
 import { fmtDate, fmtDuration, fmtTime, rupees, sportEmoji } from "@/lib/format";
@@ -84,7 +85,9 @@ export default function DugoutPage() {
 }
 
 function Dugout() {
-  const [drafts, setDrafts] = useState<Draft[]>(() => read<Draft[]>(DRAFT_STORE, []));
+  const { me } = useMe();
+  const draftKey = `${DRAFT_STORE}.${me.id}`; // drafts belong to whoever is signed in on this browser
+  const [drafts, setDrafts] = useState<Draft[]>(() => read<Draft[]>(draftKey, []));
   const [paste, setPaste] = useState("");
   const [grounds, setGrounds] = useState<Ground[]>([]);
   const [organizer, setOrganizer] = useState("");
@@ -108,9 +111,9 @@ function Dugout() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(DRAFT_STORE, JSON.stringify(drafts));
+      localStorage.setItem(draftKey, JSON.stringify(drafts));
     } catch {}
-  }, [drafts]);
+  }, [drafts, draftKey]);
 
   const detected = useMemo(() => (paste.trim() ? parseTeamSheet(paste) : []), [paste]);
 

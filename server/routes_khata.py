@@ -12,13 +12,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 import schemas
-from auth import require_admin, require_key
+from auth import require_key
 from db import get_db
-from models import Entry, LedgerTxn, Player, new_slug, utcnow
+from models import Entry, Host, LedgerTxn, Player, new_slug, utcnow
 from roster import normalize_phone
 from services import get_app_settings, log, pay_rating
 
-router = APIRouter(prefix="/khata", tags=["scorebook"], dependencies=[Depends(require_admin), Depends(require_key)])
+router = APIRouter(prefix="/khata", tags=["scorebook"], dependencies=[Depends(require_key)])
 public_router = APIRouter(prefix="/public/bill", tags=["public"])
 
 PLAYER_LOAD = (
@@ -119,16 +119,16 @@ def _ensure_slug(db: Session, p: Player) -> str:
     return p.pay_slug
 
 
-def _load_player(db: Session, player_id: int) -> Player:
-    p = db.scalar(select(Player).where(Player.id == player_id).options(*PLAYER_LOAD))
+def _load_player(db: Session, host: Host, player_id: int) -> Player:
+    p = db.scalar(select(Player).where(Player.id == player_id, Player.host_id == host.id).options(*PLAYER_LOAD))
     if p is None:
         raise HTTPException(404, "Player not found")
     return p
 
 
-def _detail(db: Session, player_id: int) -> schemas.KhataDetail:
+def _detail(db: Session, host: Host, player_id: int) -> schemas.KhataDetail:
     db.expire_all()
-    p = _load_player(db, player_id)
+    p = _load_player(db, host, player_id)
     slug = _ensure_slug(db, p)
     return schemas.KhataDetail(**_row(p).model_dump(), pay_slug=slug, history=_history(p))
 
@@ -142,10 +142,10 @@ def _clean_phone(raw: str | None) -> str | None:
     return phone
 
 
-def _check_phone_free(db: Session, phone: str | None, player_id: int | None = None) -> None:
+def _check_phone_free(db: Session, host: Host, phone: str | None, player_id: int | None = None) -> None:
     if not phone:
         return
-    other = db.scalar(select(Player).where(Player.phone == phone))
+    other = db.scalar(select(Player).where(Player.host_id == host.id, Player.phone == phone))
     if other and other.id != player_id:
         raise HTTPException(409, f"That number is already saved for {other.name}")
 
@@ -167,47 +167,47 @@ def _bill_lines(p: Player) -> list[schemas.BillLine]:
 # ---------- organiser endpoints ----------
 
 @router.get("", response_model=list[schemas.KhataRow])
-def khata(db: Session = Depends(get_db)):
-    players = db.scalars(select(Player).options(*PLAYER_LOAD)).all()
+def khata(host: Host = Depends(require_key), db: Session = Depends(get_db)):
+    players = db.scalars(select(Player).where(Player.host_id == host.id).options(*PLAYER_LOAD)).all()
     rows = [_row(p) for p in players if not _is_organizer_only(p)]
     rows.sort(key=lambda r: (-r.balance, r.name.lower()))
     return rows
 
 
 @router.post("/players", response_model=schemas.KhataDetail)
-def add_player(body: schemas.KhataPlayerIn, db: Session = Depends(get_db)):
+def add_player(body: schemas.KhataPlayerIn, host: Host = Depends(require_key), db: Session = Depends(get_db)):
     phone = _clean_phone(body.phone)
-    _check_phone_free(db, phone)
-    p = Player(name=" ".join(body.name.split()), phone=phone)
+    _check_phone_free(db, host, phone)
+    p = Player(host_id=host.id, name=" ".join(body.name.split()), phone=phone)
     db.add(p)
     db.commit()
-    return _detail(db, p.id)
+    return _detail(db, host, p.id)
 
 
 @router.get("/players/{player_id}", response_model=schemas.KhataDetail)
-def player_detail(player_id: int, db: Session = Depends(get_db)):
-    return _detail(db, player_id)
+def player_detail(player_id: int, host: Host = Depends(require_key), db: Session = Depends(get_db)):
+    return _detail(db, host, player_id)
 
 
 @router.patch("/players/{player_id}", response_model=schemas.KhataDetail)
-def update_player(player_id: int, body: schemas.KhataPlayerPatch, db: Session = Depends(get_db)):
-    p = _load_player(db, player_id)
+def update_player(player_id: int, body: schemas.KhataPlayerPatch, host: Host = Depends(require_key), db: Session = Depends(get_db)):
+    p = _load_player(db, host, player_id)
     changes = body.model_dump(exclude_unset=True)
     if "phone" in changes:
         phone = _clean_phone(body.phone)
-        _check_phone_free(db, phone, p.id)
+        _check_phone_free(db, host, phone, p.id)
         p.phone = phone
     if body.name is not None:
         p.name = " ".join(body.name.split())
     if body.archived is not None:
         p.archived = body.archived
     db.commit()
-    return _detail(db, player_id)
+    return _detail(db, host, player_id)
 
 
 @router.delete("/players/{player_id}")
-def delete_player(player_id: int, db: Session = Depends(get_db)):
-    p = _load_player(db, player_id)
+def delete_player(player_id: int, host: Host = Depends(require_key), db: Session = Depends(get_db)):
+    p = _load_player(db, host, player_id)
     if p.entries or p.txns:
         raise HTTPException(409, f"{p.name} has history. Hide them instead so the record stays")
     db.delete(p)
@@ -216,8 +216,8 @@ def delete_player(player_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/players/{player_id}/payment", response_model=schemas.KhataDetail)
-def record_payment(player_id: int, body: schemas.KhataMoneyIn, db: Session = Depends(get_db)):
-    p = _load_player(db, player_id)
+def record_payment(player_id: int, body: schemas.KhataMoneyIn, host: Host = Depends(require_key), db: Session = Depends(get_db)):
+    p = _load_player(db, host, player_id)
     remaining = body.amount
     if body.settle:
         open_games = sorted(
@@ -235,33 +235,33 @@ def record_payment(player_id: int, body: schemas.KhataMoneyIn, db: Session = Dep
         note = body.note.strip() or ("Payment received" if remaining == body.amount else "Part payment / advance")
         db.add(LedgerTxn(player_id=p.id, kind="got", amount=remaining, note=note))
     db.commit()
-    return _detail(db, player_id)
+    return _detail(db, host, player_id)
 
 
 @router.post("/players/{player_id}/due", response_model=schemas.KhataDetail)
-def add_due(player_id: int, body: schemas.KhataMoneyIn, db: Session = Depends(get_db)):
-    p = _load_player(db, player_id)
+def add_due(player_id: int, body: schemas.KhataMoneyIn, host: Host = Depends(require_key), db: Session = Depends(get_db)):
+    p = _load_player(db, host, player_id)
     db.add(LedgerTxn(player_id=p.id, kind="due", amount=body.amount, note=body.note.strip() or "Due added"))
     db.commit()
-    return _detail(db, player_id)
+    return _detail(db, host, player_id)
 
 
 @router.delete("/txns/{txn_id}", response_model=schemas.KhataDetail)
-def delete_txn(txn_id: int, db: Session = Depends(get_db)):
+def delete_txn(txn_id: int, host: Host = Depends(require_key), db: Session = Depends(get_db)):
     t = db.get(LedgerTxn, txn_id)
-    if t is None:
+    if t is None or t.player.host_id != host.id:
         raise HTTPException(404, "Entry not found")
     player_id = t.player_id
     db.delete(t)
     db.commit()
-    return _detail(db, player_id)
+    return _detail(db, host, player_id)
 
 
 @router.get("/bills", response_model=list[schemas.BillOut])
-def bills(db: Session = Depends(get_db)):
+def bills(host: Host = Depends(require_key), db: Session = Depends(get_db)):
     """Everyone whose bill link would ask for money, with the lines to put in the message."""
     out = []
-    for p in db.scalars(select(Player).options(*PLAYER_LOAD)).all():
+    for p in db.scalars(select(Player).where(Player.host_id == host.id).options(*PLAYER_LOAD)).all():
         if p.archived:
             continue
         row = _row(p)
@@ -276,8 +276,11 @@ def bills(db: Session = Depends(get_db)):
 
 
 @router.get("/export")
-def export(db: Session = Depends(get_db)):
-    players = [p for p in db.scalars(select(Player).options(*PLAYER_LOAD)).all() if not _is_organizer_only(p)]
+def export(host: Host = Depends(require_key), db: Session = Depends(get_db)):
+    players = [
+        p for p in db.scalars(select(Player).where(Player.host_id == host.id).options(*PLAYER_LOAD)).all()
+        if not _is_organizer_only(p)
+    ]
     wb = Workbook()
     ws = wb.active
     ws.title = "Players"
@@ -323,9 +326,10 @@ def _bill_player(db: Session, slug: str) -> Player:
 
 
 def _public_bill(db: Session, p: Player) -> schemas.PublicBill:
-    s = get_app_settings(db)
+    s = get_app_settings(db, p.host_id)
     row = _row(p)
     return schemas.PublicBill(
+        host_username=p.host.username if p.host else "",
         name=p.name, organizer_name=s.organizer_name, upi_id=s.upi_id, payee_name=s.payee_name or s.organizer_name,
         lines=_bill_lines(p), extra_due=_extra_due(p), due=row.bill_due, under_review=row.under_review,
     )

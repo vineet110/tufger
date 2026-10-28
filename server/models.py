@@ -1,7 +1,7 @@
 import secrets
 from datetime import date, datetime, time, timezone
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, Time
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, String, Text, Time
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db import Base
@@ -23,20 +23,53 @@ DEFAULT_REMINDER = (
 )
 
 
-class AppSettings(Base):
-    __tablename__ = "app_settings"
+class Host(Base):
+    """Someone who runs games on Tufger. role: admin (site owner) | premium | host."""
 
-    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    __tablename__ = "hosts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(30), unique=True, index=True)  # stored lowercase
+    display_name: Mapped[str] = mapped_column(String(80))
+    password_hash: Mapped[str] = mapped_column(String(200))
+    role: Mapped[str] = mapped_column(String(10), default="host")
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    token_version: Mapped[int] = mapped_column(Integer, default=0)  # bump to sign out every session
+    failed_logins: Mapped[int] = mapped_column(Integer, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class SiteConfig(Base):
+    """Site-wide switches the admin edits from Settings (single row, id=1)."""
+
+    __tablename__ = "site_config"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    vault_key_hash: Mapped[str | None] = mapped_column(String(200), nullable=True)  # None = use TUFGER_KEY env
+
+
+class AppSettings(Base):
+    """One row per host: their name, UPI, message template and house rules."""
+
+    __tablename__ = "app_settings"
+    __table_args__ = (Index("ux_app_settings_host", "host_id", unique=True),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    host_id: Mapped[int | None] = mapped_column(ForeignKey("hosts.id", ondelete="CASCADE"), nullable=True)
     organizer_name: Mapped[str] = mapped_column(String(80), default="Organiser")
     upi_id: Mapped[str] = mapped_column(String(120), default="")
     payee_name: Mapped[str] = mapped_column(String(80), default="")
     reminder_template: Mapped[str] = mapped_column(Text, default=DEFAULT_REMINDER)
+    house_refunds: Mapped[str] = mapped_column(Text, default="")  # one rule per line; "" = Tufger defaults
+    house_last_minute: Mapped[str] = mapped_column(Text, default="")
 
 
 class Ground(Base):
     __tablename__ = "grounds"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    host_id: Mapped[int | None] = mapped_column(ForeignKey("hosts.id", ondelete="CASCADE"), index=True, nullable=True)
     name: Mapped[str] = mapped_column(String(120))
     area: Mapped[str] = mapped_column(String(120), default="")
     sport: Mapped[str] = mapped_column(String(20), default="cricket")
@@ -47,15 +80,19 @@ class Ground(Base):
 
 class Player(Base):
     __tablename__ = "players"
+    # the same person can play for two hosts, so a number is unique per host only
+    __table_args__ = (Index("ux_players_host_phone", "host_id", "phone", unique=True),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    host_id: Mapped[int | None] = mapped_column(ForeignKey("hosts.id", ondelete="CASCADE"), index=True, nullable=True)
     name: Mapped[str] = mapped_column(String(120))
-    phone: Mapped[str | None] = mapped_column(String(15), unique=True, nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(15), nullable=True)
     archived: Mapped[bool] = mapped_column(Boolean, default=False)  # hidden from the khata list
     pay_slug: Mapped[str | None] = mapped_column(String(16), unique=True, nullable=True)  # personal bill link
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     entries: Mapped[list["Entry"]] = relationship(back_populates="player")
+    host: Mapped[Host | None] = relationship()
     txns: Mapped[list["LedgerTxn"]] = relationship(
         back_populates="player", cascade="all, delete-orphan", order_by="LedgerTxn.created_at"
     )
@@ -80,6 +117,7 @@ class Booking(Base):
     __tablename__ = "bookings"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    host_id: Mapped[int | None] = mapped_column(ForeignKey("hosts.id", ondelete="CASCADE"), index=True, nullable=True)
     slug: Mapped[str] = mapped_column(String(16), unique=True, index=True, default=new_slug)
     ground_id: Mapped[int | None] = mapped_column(ForeignKey("grounds.id", ondelete="SET NULL"))
     ground_name: Mapped[str] = mapped_column(String(120))  # snapshot, survives ground edits
@@ -100,6 +138,7 @@ class Booking(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     ground: Mapped[Ground | None] = relationship()
+    host: Mapped[Host | None] = relationship()
     entries: Mapped[list["Entry"]] = relationship(
         back_populates="booking", cascade="all, delete-orphan", order_by="Entry.position"
     )

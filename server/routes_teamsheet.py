@@ -1,6 +1,6 @@
 """Dugout: turn pasted WhatsApp game posts into bookings with per-player amounts.
 
-Needs the organiser login *and* the TUFGER_KEY (see auth.require_key).
+Premium hosts only, and needs the Tufger key (see auth.require_key).
 """
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -8,23 +8,26 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 import schemas
-from auth import require_admin, require_key
+from auth import require_key
 from db import get_db
-from models import Booking, Entry, Ground, utcnow
+from models import Booking, Entry, Ground, Host, utcnow
 from services import log, resolve_player
 
 
-router = APIRouter(prefix="/teamsheet", tags=["teamsheet"], dependencies=[Depends(require_admin), Depends(require_key)])
+router = APIRouter(prefix="/teamsheet", tags=["dugout"], dependencies=[Depends(require_key)])
 
 
 @router.post("/games", response_model=schemas.SheetGameOut)
-def create_game(body: schemas.SheetGameIn, db: Session = Depends(get_db)):
+def create_game(body: schemas.SheetGameIn, host: Host = Depends(require_key), db: Session = Depends(get_db)):
     total = sum(p.amount for p in body.players)
     if total <= 0:
         raise HTTPException(400, "Set an amount for the players first")
 
-    ground = db.scalar(select(Ground).where(func.lower(Ground.name) == body.ground_name.strip().lower()))
+    ground = db.scalar(
+        select(Ground).where(Ground.host_id == host.id, func.lower(Ground.name) == body.ground_name.strip().lower())
+    )
     booking = Booking(
+        host_id=host.id,
         ground_id=ground.id if ground else None,
         ground_name=ground.name if ground else body.ground_name.strip(),
         sport=body.sport,
@@ -41,7 +44,7 @@ def create_game(body: schemas.SheetGameIn, db: Session = Depends(get_db)):
 
     seen: set[int] = set()
     for position, p in enumerate(body.players):
-        player = resolve_player(db, p.name, p.phone, keep_name=True)
+        player = resolve_player(db, host.id, p.name, p.phone, keep_name=True)
         if player.id in seen:
             continue
         seen.add(player.id)

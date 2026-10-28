@@ -1,18 +1,29 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { isPremium, useMe } from "@/components/AdminShell";
 import { toast } from "@/components/Toast";
-import { api, setToken } from "@/lib/api";
+import { Upgrade } from "@/components/VaultGate";
+import { api, setToken, setVaultKey } from "@/lib/api";
+import { DEFAULT_LAST_MINUTE, DEFAULT_REFUNDS } from "@/lib/rules";
 import type { Settings } from "@/lib/types";
+import { AdminPanel } from "./AdminPanel";
 
 const VARS = ["{name}", "{fullname}", "{amount}", "{ground}", "{date}", "{time}", "{upi}", "{link}"];
 
+const DEFAULT_REFUNDS_TEXT = DEFAULT_REFUNDS.join("\n");
+const DEFAULT_LAST_MINUTE_TEXT = DEFAULT_LAST_MINUTE.join("\n");
+
 export default function SettingsPage() {
+  const { me } = useMe();
   const [s, setS] = useState<Settings | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    api.settings().then(setS);
+    // show the defaults in the boxes so hosts start from something sensible
+    api.settings().then((x) =>
+      setS({ ...x, house_refunds: x.house_refunds || DEFAULT_REFUNDS_TEXT, house_last_minute: x.house_last_minute || DEFAULT_LAST_MINUTE_TEXT }),
+    );
   }, []);
 
   if (!s) return <div className="slab h-96 animate-pulse opacity-50" />;
@@ -30,7 +41,17 @@ export default function SettingsPage() {
   async function save() {
     setBusy(true);
     try {
-      setS(await api.saveSettings(s!));
+      // unchanged defaults are stored as "" so future default improvements reach this host too
+      const saved = await api.saveSettings({
+        ...s!,
+        house_refunds: s!.house_refunds.trim() === DEFAULT_REFUNDS_TEXT ? "" : s!.house_refunds.trim(),
+        house_last_minute: s!.house_last_minute.trim() === DEFAULT_LAST_MINUTE_TEXT ? "" : s!.house_last_minute.trim(),
+      });
+      setS({
+        ...saved,
+        house_refunds: saved.house_refunds || DEFAULT_REFUNDS_TEXT,
+        house_last_minute: saved.house_last_minute || DEFAULT_LAST_MINUTE_TEXT,
+      });
       toast("Settings saved");
     } catch (e) {
       toast(e instanceof Error ? e.message : "Couldn't save", "err");
@@ -98,13 +119,38 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      <section className="slab p-6">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="display text-3xl">House rules</h2>
+          <a href={me.role === "admin" ? "/policies" : `/policies?host=${me.username}`} target="_blank" className="text-xs text-chalk-dim underline">
+            See what players see ↗
+          </a>
+        </div>
+        <p className="mt-1 text-sm text-muted">Players open these from the footer of your pay links. One rule per line. Privacy rules are the same for everyone.</p>
+        <RulesBox label="Refunds" value={s.house_refunds} onChange={(v) => setS({ ...s, house_refunds: v })} onReset={() => setS({ ...s, house_refunds: DEFAULT_REFUNDS_TEXT })} />
+        <RulesBox
+          label="Last-minute rules"
+          value={s.house_last_minute}
+          onChange={(v) => setS({ ...s, house_last_minute: v })}
+          onReset={() => setS({ ...s, house_last_minute: DEFAULT_LAST_MINUTE_TEXT })}
+        />
+      </section>
+
       <div className="flex items-center gap-3">
         <button className="btn btn-lime !px-8" disabled={busy} onClick={save}>
           {busy ? "Saving…" : "Save settings"}
         </button>
+      </div>
+
+      <Account />
+      {me.role === "admin" && <AdminPanel />}
+      {!isPremium(me) && <Upgrade title="Premium" name={me.display_name} />}
+
+      <div className="flex justify-end">
         <button
-          className="btn btn-ghost ml-auto"
+          className="btn btn-ghost"
           onClick={() => {
+            setVaultKey(null);
             setToken(null);
             window.dispatchEvent(new Event("tufger:logout"));
           }}
@@ -115,3 +161,66 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+function RulesBox({ label, value, onChange, onReset }: { label: string; value: string; onChange: (v: string) => void; onReset: () => void }) {
+  return (
+    <div className="mt-5">
+      <div className="flex items-center justify-between">
+        <label className="eyebrow label">{label}</label>
+        <button className="text-xs text-chalk-dim underline" onClick={onReset}>
+          Use Tufger defaults
+        </button>
+      </div>
+      <textarea className="field min-h-[170px] text-sm leading-relaxed" value={value} onChange={(e) => onChange(e.target.value)} />
+    </div>
+  );
+}
+
+function Account() {
+  const { me } = useMe();
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const word = me.role === "admin" ? "Pavilion passcode" : "password";
+  const problem = next.length < 8 ? `New ${word} needs at least 8 characters` : next !== confirm ? "They don't match" : "";
+
+  async function change(e: React.FormEvent) {
+    e.preventDefault();
+    if (problem) return toast(problem, "err");
+    setBusy(true);
+    try {
+      const session = await api.changePassword(current, next);
+      setToken(session.token); // this device stays signed in; others are signed out
+      setCurrent("");
+      setNext("");
+      setConfirm("");
+      toast(`${word[0].toUpperCase() + word.slice(1)} changed. Other devices are signed out`);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't change it", "err");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section id="account" className="slab scroll-mt-24 p-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="display text-3xl">Account</h2>
+        <span className="text-sm text-chalk-dim">
+          @{me.username} · <span className="chip chip-pending !text-[0.65rem]">{me.role}</span>
+        </span>
+      </div>
+      <form onSubmit={change} className="mt-4 grid gap-3 sm:grid-cols-3">
+        <input type="password" className="field" autoComplete="current-password" placeholder={`Current ${word}`} value={current} onChange={(e) => setCurrent(e.target.value)} />
+        <input type="password" className="field" autoComplete="new-password" placeholder={`New ${word}`} value={next} onChange={(e) => setNext(e.target.value)} />
+        <input type="password" className="field" autoComplete="new-password" placeholder="Confirm new" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+        <button className="btn btn-sm sm:col-span-3 sm:justify-self-start" disabled={busy || !current || !next}>
+          {busy ? "Saving…" : `Change ${word}`}
+        </button>
+      </form>
+    </section>
+  );
+}
+
+

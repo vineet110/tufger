@@ -1,3 +1,5 @@
+"""A host's own workspace: settings, grounds, bookings and dashboard. Every query is scoped to the host."""
+
 from datetime import date
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -5,9 +7,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 import schemas
-from auth import check_passcode, issue_token, require_admin, require_key
+from auth import current_host
 from db import get_db
-from models import Booking, Entry, Ground, Player, utcnow
+from models import Booking, Entry, Ground, Host, Player, utcnow
 from roster import normalize_phone, parse_sheet
 from services import (
     booking_detail,
@@ -18,8 +20,7 @@ from services import (
 )
 from split import split_amount
 
-auth_router = APIRouter(prefix="/auth", tags=["auth"])
-router = APIRouter(dependencies=[Depends(require_admin)])
+router = APIRouter(dependencies=[Depends(current_host)])
 
 BOOKING_LOAD = (
     selectinload(Booking.entries).selectinload(Entry.player),
@@ -28,32 +29,16 @@ BOOKING_LOAD = (
 )
 
 
-@auth_router.post("/login")
-def login(body: schemas.LoginIn):
-    if not check_passcode(body.passcode):
-        raise HTTPException(401, "Wrong passcode")
-    return {"token": issue_token()}
-
-
-@router.get("/auth/me")
-def me():
-    return {"ok": True}
-
-
-@router.post("/auth/unlock", dependencies=[Depends(require_key)])
-def unlock():
-    """Checks the Tufger key that opens Dugout and Scorebook."""
-    return {"ok": True}
-
-
 @router.put("/players/{player_id}/phone")
-def set_phone(player_id: int, body: schemas.PhoneIn, db: Session = Depends(get_db)):
+def set_phone(body: schemas.PhoneIn, player_id: int, host: Host = Depends(current_host), db: Session = Depends(get_db)):
     """Save a WhatsApp number from a booking (no Tufger key needed for this one field)."""
-    player = db.get(Player, player_id) or _404("Player")
+    player = db.get(Player, player_id)
+    if player is None or player.host_id != host.id:
+        _404("Player")
     phone = normalize_phone(body.phone)
     if not phone:
         raise HTTPException(400, "Enter a 10-digit mobile number")
-    other = db.scalar(select(Player).where(Player.phone == phone))
+    other = db.scalar(select(Player).where(Player.host_id == host.id, Player.phone == phone))
     if other and other.id != player.id:
         raise HTTPException(409, f"That number is already saved for {other.name}")
     player.phone = phone
@@ -64,13 +49,13 @@ def set_phone(player_id: int, body: schemas.PhoneIn, db: Session = Depends(get_d
 # ---------- settings ----------
 
 @router.get("/settings", response_model=schemas.SettingsIO)
-def read_settings(db: Session = Depends(get_db)):
-    return get_app_settings(db)
+def read_settings(host: Host = Depends(current_host), db: Session = Depends(get_db)):
+    return get_app_settings(db, host.id)
 
 
 @router.put("/settings", response_model=schemas.SettingsIO)
-def write_settings(body: schemas.SettingsIO, db: Session = Depends(get_db)):
-    row = get_app_settings(db)
+def write_settings(body: schemas.SettingsIO, host: Host = Depends(current_host), db: Session = Depends(get_db)):
+    row = get_app_settings(db, host.id)
     for key, value in body.model_dump().items():
         setattr(row, key, value)
     db.commit()
@@ -79,41 +64,49 @@ def write_settings(body: schemas.SettingsIO, db: Session = Depends(get_db)):
 
 # ---------- grounds ----------
 
+def _ground_out(g: Ground, bookings: int = 0) -> schemas.GroundOut:
+    return schemas.GroundOut(
+        id=g.id, name=g.name, area=g.area, sport=g.sport, price_per_hour=g.price_per_hour,
+        weekend_price_per_hour=g.weekend_price_per_hour, bookings=bookings,
+    )
+
+
+def _own_ground(db: Session, host: Host, ground_id: int) -> Ground:
+    ground = db.get(Ground, ground_id)
+    if ground is None or ground.host_id != host.id:
+        _404("Ground")
+    return ground
+
+
 @router.get("/grounds", response_model=list[schemas.GroundOut])
-def list_grounds(db: Session = Depends(get_db)):
-    counts = dict(db.execute(select(Booking.ground_id, func.count()).group_by(Booking.ground_id)).all())
-    grounds = db.scalars(select(Ground).order_by(Ground.name)).all()
-    return [
-        schemas.GroundOut(
-            id=g.id, name=g.name, area=g.area, sport=g.sport,
-            price_per_hour=g.price_per_hour, weekend_price_per_hour=g.weekend_price_per_hour,
-            bookings=counts.get(g.id, 0),
-        )
-        for g in grounds
-    ]
+def list_grounds(host: Host = Depends(current_host), db: Session = Depends(get_db)):
+    counts = dict(db.execute(
+        select(Booking.ground_id, func.count()).where(Booking.host_id == host.id).group_by(Booking.ground_id)
+    ).all())
+    grounds = db.scalars(select(Ground).where(Ground.host_id == host.id).order_by(Ground.name)).all()
+    return [_ground_out(g, counts.get(g.id, 0)) for g in grounds]
 
 
 @router.post("/grounds", response_model=schemas.GroundOut)
-def create_ground(body: schemas.GroundIn, db: Session = Depends(get_db)):
-    ground = Ground(**body.model_dump())
+def create_ground(body: schemas.GroundIn, host: Host = Depends(current_host), db: Session = Depends(get_db)):
+    ground = Ground(host_id=host.id, **body.model_dump())
     db.add(ground)
     db.commit()
-    return schemas.GroundOut(id=ground.id, **body.model_dump())
+    return _ground_out(ground)
 
 
 @router.put("/grounds/{ground_id}", response_model=schemas.GroundOut)
-def update_ground(ground_id: int, body: schemas.GroundIn, db: Session = Depends(get_db)):
-    ground = db.get(Ground, ground_id) or _404("Ground")
+def update_ground(ground_id: int, body: schemas.GroundIn, host: Host = Depends(current_host), db: Session = Depends(get_db)):
+    ground = _own_ground(db, host, ground_id)
     for key, value in body.model_dump().items():
         setattr(ground, key, value)
     db.commit()
-    return schemas.GroundOut(id=ground.id, **body.model_dump())
+    return _ground_out(ground)
 
 
 @router.delete("/grounds/{ground_id}")
-def delete_ground(ground_id: int, db: Session = Depends(get_db)):
-    ground = db.get(Ground, ground_id) or _404("Ground")
-    db.delete(ground)
+def delete_ground(ground_id: int, host: Host = Depends(current_host), db: Session = Depends(get_db)):
+    db.delete(_own_ground(db, host, ground_id))
     db.commit()
     return {"ok": True}
 
@@ -138,10 +131,10 @@ async def upload_roster(file: UploadFile = File(...)):
 # ---------- bookings ----------
 
 @router.get("/bookings", response_model=list[schemas.BookingSummary])
-def list_bookings(archived: bool = False, db: Session = Depends(get_db)):
+def list_bookings(archived: bool = False, host: Host = Depends(current_host), db: Session = Depends(get_db)):
     rows = db.scalars(
         select(Booking)
-        .where(Booking.archived == archived)
+        .where(Booking.host_id == host.id, Booking.archived == archived)
         .options(selectinload(Booking.entries), selectinload(Booking.ground))
         .order_by(Booking.play_date.desc(), Booking.start_time.desc())
     ).all()
@@ -149,9 +142,9 @@ def list_bookings(archived: bool = False, db: Session = Depends(get_db)):
 
 
 @router.post("/bookings", response_model=schemas.BookingDetail)
-def create_booking(body: schemas.BookingIn, db: Session = Depends(get_db)):
-    ground = db.get(Ground, body.ground_id) or _404("Ground")
-    settings = get_app_settings(db)
+def create_booking(body: schemas.BookingIn, host: Host = Depends(current_host), db: Session = Depends(get_db)):
+    ground = _own_ground(db, host, body.ground_id)
+    settings = get_app_settings(db, host.id)
 
     roster = list(body.players)
     if body.include_organizer:
@@ -163,6 +156,7 @@ def create_booking(body: schemas.BookingIn, db: Session = Depends(get_db)):
     amounts = split_amount(total_amount, [p.amount for p in roster], body.round_to)
 
     booking = Booking(
+        host_id=host.id,
         ground_id=ground.id,
         ground_name=ground.name,
         sport=ground.sport,
@@ -183,7 +177,7 @@ def create_booking(body: schemas.BookingIn, db: Session = Depends(get_db)):
 
     seen: set[int] = set()
     for position, (p, amount) in enumerate(zip(roster, amounts)):
-        player = resolve_player(db, p.name, p.phone)
+        player = resolve_player(db, host.id, p.name, p.phone)
         if player.id in seen:
             continue
         seen.add(player.id)
@@ -197,17 +191,17 @@ def create_booking(body: schemas.BookingIn, db: Session = Depends(get_db)):
     off = f", ₹{body.discount} discount" if body.discount else ""
     log(db, booking, "created", f"Booking created with {len(seen)} players, ₹{total_amount} total ({rate}{off})")
     db.commit()
-    return _load(db, booking.id)
+    return _load(db, host, booking.id)
 
 
 @router.get("/bookings/{booking_id}", response_model=schemas.BookingDetail)
-def get_booking(booking_id: int, db: Session = Depends(get_db)):
-    return _load(db, booking_id)
+def get_booking(booking_id: int, host: Host = Depends(current_host), db: Session = Depends(get_db)):
+    return _load(db, host, booking_id)
 
 
 @router.patch("/bookings/{booking_id}", response_model=schemas.BookingDetail)
-def patch_booking(booking_id: int, body: schemas.BookingPatch, db: Session = Depends(get_db)):
-    booking = db.get(Booking, booking_id) or _404("Booking")
+def patch_booking(booking_id: int, body: schemas.BookingPatch, host: Host = Depends(current_host), db: Session = Depends(get_db)):
+    booking = _load_model(db, host, booking_id)
     changes = body.model_dump(exclude_unset=True)
     for key, value in changes.items():
         setattr(booking, key, value)
@@ -216,34 +210,33 @@ def patch_booking(booking_id: int, body: schemas.BookingPatch, db: Session = Dep
     elif changes:
         log(db, booking, "edited", "Booking details updated")
     db.commit()
-    return _load(db, booking_id)
+    return _load(db, host, booking_id)
 
 
 @router.delete("/bookings/{booking_id}")
-def delete_booking(booking_id: int, db: Session = Depends(get_db)):
-    booking = db.get(Booking, booking_id) or _404("Booking")
-    db.delete(booking)
+def delete_booking(booking_id: int, host: Host = Depends(current_host), db: Session = Depends(get_db)):
+    db.delete(_load_model(db, host, booking_id))
     db.commit()
     return {"ok": True}
 
 
 @router.post("/bookings/{booking_id}/resplit", response_model=schemas.BookingDetail)
-def resplit(booking_id: int, db: Session = Depends(get_db)):
-    booking = _load_model(db, booking_id)
+def resplit(booking_id: int, host: Host = Depends(current_host), db: Session = Depends(get_db)):
+    booking = _load_model(db, host, booking_id)
     _resplit(booking)
     log(db, booking, "edited", f"Re-split ₹{booking.total_amount} across {len(booking.entries)} players")
     db.commit()
-    return _load(db, booking_id)
+    return _load(db, host, booking_id)
 
 
 @router.post("/bookings/{booking_id}/players", response_model=schemas.BookingDetail)
-def add_players(booking_id: int, body: schemas.AddPlayersIn, db: Session = Depends(get_db)):
-    booking = _load_model(db, booking_id)
+def add_players(booking_id: int, body: schemas.AddPlayersIn, host: Host = Depends(current_host), db: Session = Depends(get_db)):
+    booking = _load_model(db, host, booking_id)
     existing = {e.player_id for e in booking.entries}
     position = max((e.position for e in booking.entries), default=-1) + 1
     added = []
     for p in body.players:
-        player = resolve_player(db, p.name, p.phone)
+        player = resolve_player(db, host.id, p.name, p.phone)
         if player.id in existing:
             continue
         existing.add(player.id)
@@ -258,24 +251,26 @@ def add_players(booking_id: int, body: schemas.AddPlayersIn, db: Session = Depen
     if added:
         log(db, booking, "edited", f"Added {', '.join(added)}")
     db.commit()
-    return _load(db, booking_id)
+    return _load(db, host, booking_id)
 
 
 @router.delete("/bookings/{booking_id}/entries/{entry_id}", response_model=schemas.BookingDetail)
-def remove_entry(booking_id: int, entry_id: int, resplit: bool = True, db: Session = Depends(get_db)):
-    booking = _load_model(db, booking_id)
+def remove_entry(booking_id: int, entry_id: int, resplit: bool = True, host: Host = Depends(current_host), db: Session = Depends(get_db)):
+    booking = _load_model(db, host, booking_id)
     entry = _entry(booking, entry_id)
     booking.entries.remove(entry)
     if resplit and booking.entries:
         _resplit(booking)
     log(db, booking, "edited", f"Removed {entry.player.name}")
     db.commit()
-    return _load(db, booking_id)
+    return _load(db, host, booking_id)
 
 
 @router.post("/bookings/{booking_id}/entries/{entry_id}/status", response_model=schemas.BookingDetail)
-def set_entry_status(booking_id: int, entry_id: int, body: schemas.EntryStatusIn, db: Session = Depends(get_db)):
-    booking = _load_model(db, booking_id)
+def set_entry_status(
+    booking_id: int, entry_id: int, body: schemas.EntryStatusIn, host: Host = Depends(current_host), db: Session = Depends(get_db)
+):
+    booking = _load_model(db, host, booking_id)
     entry = _entry(booking, entry_id)
     previous = entry.status
     entry.status = body.status
@@ -289,35 +284,37 @@ def set_entry_status(booking_id: int, entry_id: int, body: schemas.EntryStatusIn
         entry.utr = ""
         log(db, booking, "reset", f"{entry.player.name} moved back to pending")
     db.commit()
-    return _load(db, booking_id)
+    return _load(db, host, booking_id)
 
 
 @router.put("/bookings/{booking_id}/entries/{entry_id}/amount", response_model=schemas.BookingDetail)
-def set_entry_amount(booking_id: int, entry_id: int, body: schemas.EntryAmountIn, db: Session = Depends(get_db)):
-    booking = _load_model(db, booking_id)
+def set_entry_amount(
+    booking_id: int, entry_id: int, body: schemas.EntryAmountIn, host: Host = Depends(current_host), db: Session = Depends(get_db)
+):
+    booking = _load_model(db, host, booking_id)
     entry = _entry(booking, entry_id)
     entry.amount = body.amount
     log(db, booking, "edited", f"{entry.player.name}'s share set to ₹{body.amount}")
     db.commit()
-    return _load(db, booking_id)
+    return _load(db, host, booking_id)
 
 
 @router.post("/bookings/{booking_id}/entries/{entry_id}/nudge", response_model=schemas.BookingDetail)
-def nudge(booking_id: int, entry_id: int, db: Session = Depends(get_db)):
-    booking = _load_model(db, booking_id)
+def nudge(booking_id: int, entry_id: int, host: Host = Depends(current_host), db: Session = Depends(get_db)):
+    booking = _load_model(db, host, booking_id)
     entry = _entry(booking, entry_id)
     entry.nudges += 1
     entry.last_nudged_at = utcnow()
     db.commit()
-    return _load(db, booking_id)
+    return _load(db, host, booking_id)
 
 
 # ---------- dashboard ----------
 
 @router.get("/dashboard", response_model=schemas.DashboardOut)
-def dashboard(db: Session = Depends(get_db)):
+def dashboard(host: Host = Depends(current_host), db: Session = Depends(get_db)):
     bookings = db.scalars(
-        select(Booking).options(selectinload(Booking.entries), selectinload(Booking.ground))
+        select(Booking).where(Booking.host_id == host.id).options(selectinload(Booking.entries), selectinload(Booking.ground))
     ).all()
     active = [b for b in bookings if not b.archived]
     upcoming = sorted(
@@ -330,7 +327,7 @@ def dashboard(db: Session = Depends(get_db)):
         to_collect=sum(e.amount for b in active for e in b.entries if e.status != "paid"),
         collected_all_time=sum(e.amount for e in all_entries if e.status == "paid"),
         awaiting_confirmation=sum(1 for b in active for e in b.entries if e.status == "claimed"),
-        players=db.scalar(select(func.count()).select_from(Player)) or 0,
+        players=db.scalar(select(func.count()).select_from(Player).where(Player.host_id == host.id)) or 0,
         next_game=booking_summary(upcoming[0]) if upcoming else None,
     )
 
@@ -341,14 +338,16 @@ def _404(what: str):
     raise HTTPException(404, f"{what} not found")
 
 
-def _load_model(db: Session, booking_id: int) -> Booking:
-    booking = db.scalar(select(Booking).where(Booking.id == booking_id).options(*BOOKING_LOAD))
+def _load_model(db: Session, host: Host, booking_id: int) -> Booking:
+    booking = db.scalar(
+        select(Booking).where(Booking.id == booking_id, Booking.host_id == host.id).options(*BOOKING_LOAD)
+    )
     return booking or _404("Booking")
 
 
-def _load(db: Session, booking_id: int) -> schemas.BookingDetail:
+def _load(db: Session, host: Host, booking_id: int) -> schemas.BookingDetail:
     db.expire_all()
-    return booking_detail(_load_model(db, booking_id))
+    return booking_detail(_load_model(db, host, booking_id))
 
 
 def _entry(booking: Booking, entry_id: int) -> Entry:
