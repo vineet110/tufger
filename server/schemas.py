@@ -163,15 +163,91 @@ class PublicBooking(BaseModel):
     entries: list[PublicEntry]
 
 
-class PlayerStats(BaseModel):
+class KhataRow(BaseModel):
     id: int
     name: str
     phone: str | None
+    archived: bool
     games: int
-    paid_total: int
-    outstanding: int
+    charged: int
+    paid: int
+    balance: int  # > 0 = owes you, < 0 = advance
+    bill_due: int  # what their bill link asks for (unpaid games + extra dues)
+    under_review: int
     avg_pay_hours: float | None
     rating: str
+    last_activity: datetime | None
+    has_history: bool
+
+
+class KhataItem(BaseModel):
+    id: str
+    kind: Literal["charge", "paid", "got", "due"]
+    at: datetime
+    amount: int
+    title: str
+    subtitle: str
+    status: EntryStatus | None = None
+    booking_id: int | None = None
+    txn_id: int | None = None
+    balance_after: int
+
+
+class KhataDetail(KhataRow):
+    pay_slug: str
+    history: list[KhataItem]
+
+
+class KhataPlayerIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    phone: str | None = None
+
+
+class KhataPlayerPatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    phone: str | None = None  # "" removes the number
+    archived: bool | None = None
+
+
+class KhataMoneyIn(BaseModel):
+    amount: int = Field(gt=0)
+    note: str = Field(default="", max_length=200)
+    settle: bool = True  # payments: mark the oldest unpaid games as paid first
+
+
+class BillLine(BaseModel):
+    booking_id: int
+    ground_name: str
+    play_date: date
+    start_time: time
+    amount: int
+    status: EntryStatus
+
+
+class BillOut(BaseModel):
+    player_id: int
+    name: str
+    phone: str | None
+    pay_slug: str
+    lines: list[BillLine]
+    extra_due: int  # khata dues minus payments not tied to a game (can be negative = credit)
+    due: int
+    under_review: int
+
+
+class PublicBill(BaseModel):
+    name: str
+    organizer_name: str
+    upi_id: str
+    payee_name: str
+    lines: list[BillLine]
+    extra_due: int
+    due: int
+    under_review: int
+
+
+class BillClaimIn(BaseModel):
+    utr: str = Field(default="", max_length=40)
 
 
 class DashboardOut(BaseModel):

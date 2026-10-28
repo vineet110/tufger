@@ -51,9 +51,29 @@ class Player(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(120))
     phone: Mapped[str | None] = mapped_column(String(15), unique=True, nullable=True)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False)  # hidden from the khata list
+    pay_slug: Mapped[str | None] = mapped_column(String(16), unique=True, nullable=True)  # personal bill link
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     entries: Mapped[list["Entry"]] = relationship(back_populates="player")
+    txns: Mapped[list["LedgerTxn"]] = relationship(
+        back_populates="player", cascade="all, delete-orphan", order_by="LedgerTxn.created_at"
+    )
+
+
+class LedgerTxn(Base):
+    """A khata entry not tied to a game: money received ("got") or an extra amount owed ("due")."""
+
+    __tablename__ = "ledger_txns"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    player_id: Mapped[int] = mapped_column(ForeignKey("players.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(8))  # got | due
+    amount: Mapped[int] = mapped_column(Integer)
+    note: Mapped[str] = mapped_column(String(200), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    player: Mapped[Player] = relationship(back_populates="txns")
 
 
 class Booking(Base):

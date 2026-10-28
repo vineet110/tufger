@@ -14,7 +14,6 @@ from services import (
     booking_summary,
     get_app_settings,
     log,
-    pay_rating,
     resolve_player,
 )
 from split import split_amount
@@ -292,38 +291,7 @@ def nudge(booking_id: int, entry_id: int, db: Session = Depends(get_db)):
     return _load(db, booking_id)
 
 
-# ---------- squad & dashboard ----------
-
-@router.get("/players", response_model=list[schemas.PlayerStats])
-def list_players(db: Session = Depends(get_db)):
-    players = db.scalars(
-        select(Player).options(selectinload(Player.entries).selectinload(Entry.booking))
-    ).all()
-    out = []
-    for p in players:
-        entries = [e for e in p.entries if not e.is_organizer]
-        if not entries and any(e.is_organizer for e in p.entries):
-            continue  # the organiser's own row isn't a squad member
-        delays = []
-        for e in entries:
-            done = e.claimed_at or e.paid_at
-            if e.status != "pending" and done:
-                created = e.booking.created_at
-                if created.tzinfo is None and done.tzinfo is not None:
-                    done = done.replace(tzinfo=None)
-                elif created.tzinfo is not None and done.tzinfo is None:
-                    created = created.replace(tzinfo=None)
-                delays.append(max((done - created).total_seconds() / 3600, 0))
-        avg = round(sum(delays) / len(delays), 1) if delays else None
-        out.append(schemas.PlayerStats(
-            id=p.id, name=p.name, phone=p.phone, games=len(entries),
-            paid_total=sum(e.amount for e in entries if e.status == "paid"),
-            outstanding=sum(e.amount for e in entries if e.status != "paid" and not e.booking.archived),
-            avg_pay_hours=avg, rating=pay_rating(avg, len(entries)),
-        ))
-    out.sort(key=lambda s: (-s.outstanding, -s.games, s.name))
-    return out
-
+# ---------- dashboard ----------
 
 @router.get("/dashboard", response_model=schemas.DashboardOut)
 def dashboard(db: Session = Depends(get_db)):

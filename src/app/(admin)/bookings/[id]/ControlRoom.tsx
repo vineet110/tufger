@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { use, useCallback, useEffect, useState } from "react";
 import { Pitch } from "@/components/Pitch";
 import { Scoreboard } from "@/components/Scoreboard";
+import { AddPhone } from "@/components/AddPhone";
 import { copyText, toast } from "@/components/Toast";
 import { api } from "@/lib/api";
 import { endTime, fmtDate, fmtDuration, fmtTime, rupees, sportEmoji, timeAgo } from "@/lib/format";
@@ -319,12 +320,22 @@ function PlayerPanel({
         <div>
           <div className="eyebrow !text-sky">Selected player</div>
           <div className="display text-3xl">{e.name}</div>
-          <div className="font-mono text-xs text-muted">{e.phone ? `+91 ${e.phone}` : "No phone number"}</div>
+          <div className="font-mono text-xs text-muted">
+            {e.phone ? `+91 ${e.phone}` : "No WhatsApp number yet"} ·{" "}
+            <Link href={`/khata/${e.player_id}`} className="underline hover:text-chalk">
+              khata
+            </Link>
+          </div>
         </div>
         <button className="text-muted hover:text-chalk" onClick={onClose} aria-label="Close">
           ✕
         </button>
       </div>
+      {!e.phone && (
+        <div className="mt-3">
+          <AddPhone playerId={e.player_id} name={e.name} onSaved={() => act(api.booking(b.id))} />
+        </div>
+      )}
       <div className="mt-3 flex items-center gap-2">
         <StatusChip s={e.status} />
         {e.nudges > 0 && <span className="text-xs text-muted">nudged {e.nudges}×</span>}

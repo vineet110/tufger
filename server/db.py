@@ -34,7 +34,12 @@ _ADDED_COLUMNS = {
         "discount": "INTEGER NOT NULL DEFAULT 0",
         "discount_note": "VARCHAR(120) NOT NULL DEFAULT ''",
     },
+    "players": {
+        "archived": "BOOLEAN NOT NULL DEFAULT {false}",
+        "pay_slug": "VARCHAR(16)",
+    },
 }
+_ADDED_INDEXES = ["CREATE UNIQUE INDEX IF NOT EXISTS ix_players_pay_slug ON players (pay_slug)"]
 
 
 def migrate() -> None:
@@ -46,6 +51,8 @@ def migrate() -> None:
             for name, ddl in columns.items():
                 if name not in existing[table]:
                     conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {if_not_exists}{name} {ddl.format(false=false)}"))
+        for ddl in _ADDED_INDEXES:
+            conn.execute(text(ddl))
 
 
 def get_db() -> Iterator[Session]:

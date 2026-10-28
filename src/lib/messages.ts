@@ -1,5 +1,5 @@
 import { fmtDate, fmtDuration, fmtTime, rupees, sportEmoji } from "./format";
-import type { BookingDetail, Entry } from "./types";
+import type { Bill, BookingDetail, Entry } from "./types";
 
 export function payLink(slug: string): string {
   return `${window.location.origin}/pay/${slug}`;
@@ -78,5 +78,22 @@ export function groupMessage(b: BookingDetail): string {
     lines.push("");
   }
   lines.push(pending.length ? `👉 Pay your share in 10 sec: ${payLink(b.slug)}` : "🏆 All clear! See you on the turf.");
+  return lines.join("\n");
+}
+
+export function billLink(slug: string): string {
+  return `${window.location.origin}/bill/${slug}`;
+}
+
+/** A player's full bill, ready to send in their personal WhatsApp chat. */
+export function billMessage(bill: Bill, organizer: string): string {
+  const lines = [`Hi ${bill.name.split(" ")[0]} 👋`, `Your turf dues${organizer ? ` with ${organizer}` : ""}:`, ""];
+  bill.lines.forEach((l) => {
+    const when = fmtDate(l.play_date, { weekday: "short", day: "numeric", month: "short" });
+    lines.push(`• ${l.ground_name} · ${when} — ${rupees(l.amount)}${l.status === "claimed" ? " (checking your payment)" : ""}`);
+  });
+  if (bill.extra_due > 0) lines.push(`• Other dues — ${rupees(bill.extra_due)}`);
+  if (bill.extra_due < 0) lines.push(`• Already paid in advance — −${rupees(-bill.extra_due)}`);
+  lines.push("", `Total: *${rupees(bill.due)}*`, `Pay in one go 👉 ${billLink(bill.pay_slug)}`);
   return lines.join("\n");
 }

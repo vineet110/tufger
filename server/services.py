@@ -30,6 +30,13 @@ def resolve_player(db: Session, name: str, phone: str | None, keep_name: bool = 
         player = db.scalar(select(Player).where(Player.phone == phone))
         if player:
             return player
+        # a known player who had no number yet: attach this one instead of creating a twin
+        unnumbered = db.scalars(
+            select(Player).where(func.lower(Player.name) == name.lower(), Player.phone.is_(None))
+        ).all()
+        if len(unnumbered) == 1:
+            unnumbered[0].phone = phone
+            return unnumbered[0]
     else:
         matches = db.scalars(select(Player).where(func.lower(Player.name) == name.lower())).all()
         if len(matches) == 1:

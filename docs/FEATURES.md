@@ -55,12 +55,20 @@ _Last updated: 2026-10-28_
 - [ ] Automatic scheduled reminders (needs WhatsApp Business API / SMS provider)
 - [ ] Escalating tone for 2nd / 3rd reminder
 
-## 4. Squad / ledger
+## 4. Khata (player accounts) & WhatsApp
 
-- [x] Player roster built automatically from every booking (matched by phone number)
-- [x] Per-player totals: games, paid, outstanding
-- [x] **Reliability rating**: how quickly each player usually pays
-- [ ] Carry an old unpaid balance forward into the next booking
+- [x] Every player's running balance: games charged, payments, extra dues (owes you / settled / advance)
+- [x] Per-player history with the balance after each entry, like Khatabook
+- [x] **Got payment** ticks off the oldest unpaid games first; leftover is kept as an advance
+- [x] **Add due** for extra amounts (ball money, old dues); manual entries can be removed
+- [x] Add, edit, hide players; delete only when they have no history
+- [x] WhatsApp number saved on each player and reused everywhere (bookings, Team Sheet, Nudge run)
+- [x] Team Sheet fills known numbers automatically and lets you type new ones
+- [x] **Send bills**: one tap per player opens their own WhatsApp chat with their total bill (free click-to-chat links)
+- [x] Personal bill link per player: all unpaid games, one UPI payment, "I've paid everything"
+- [x] Excel backup of all players and full history
+- [x] Pay-speed rating per player
+- [ ] Fully automatic WhatsApp sending (needs the paid WhatsApp Business API)
 - [ ] Player groups (e.g. "Sunday Cricket Gang") for one-tap roster selection
 
 ## 5. Organiser tools

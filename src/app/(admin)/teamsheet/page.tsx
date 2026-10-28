@@ -143,10 +143,20 @@ function Sheet({ sheetKey, onLocked }: { sheetKey: string; onLocked: () => void 
   const [grounds, setGrounds] = useState<Ground[]>([]);
   const [organizer, setOrganizer] = useState("");
   const [creatingAll, setCreatingAll] = useState(false);
+  const [phoneBook, setPhoneBook] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     api.grounds().then(setGrounds, () => {});
     api.settings().then((s) => setOrganizer(s.organizer_name), () => {});
+    // name → WhatsApp number from the khata, so known players come pre-filled
+    api.khata().then((rows) => {
+      const seen = new Map<string, string | null>();
+      rows.forEach((r) => {
+        const k = r.name.toLowerCase();
+        seen.set(k, seen.has(k) ? null : r.phone); // two players with one name: don't guess
+      });
+      setPhoneBook(new Map([...seen].filter((e): e is [string, string] => !!e[1])));
+    }, () => {});
   }, []);
 
   useEffect(() => {
@@ -177,7 +187,8 @@ function Sheet({ sheetKey, onLocked }: { sheetKey: string; onLocked: () => void 
         info: g.info,
         players: g.players.map((p) => {
           const isOrganizer = !!org && p.name.toLowerCase() === org;
-          return { id: uid(), name: p.name, phone: p.phone, amount: p.amount, paid: p.paid || isOrganizer, isOrganizer };
+          const phone = p.phone ?? phoneBook.get(p.name.toLowerCase()) ?? null;
+          return { id: uid(), name: p.name, phone, amount: p.amount, paid: p.paid || isOrganizer, isOrganizer };
         }),
         message: DEFAULT_MESSAGE,
         state: "draft",
@@ -280,6 +291,11 @@ function Sheet({ sheetKey, onLocked }: { sheetKey: string; onLocked: () => void 
               Clear {done} created
             </button>
           )}
+          {done > 0 && (
+            <Link href="/khata" className="btn btn-wa btn-sm">
+              📤 Send bills from Khata
+            </Link>
+          )}
           <span className="text-sm text-muted">Drafts are saved in this browser until you create or remove them.</span>
         </div>
       )}
@@ -314,6 +330,8 @@ function problem(d: Draft): string {
   if (!d.date) return "Pick the date";
   if (!d.players.length) return "Add players";
   if (d.players.some((p) => !p.name.trim())) return "A player has no name";
+  const badPhone = d.players.find((p) => p.phone && !/^(?:91|0)?[6-9]\d{9}$/.test(p.phone.replace(/\D/g, "")));
+  if (badPhone) return `Check ${badPhone.name}'s number`;
   if (d.players.some((p) => shareOf(d, p) <= 0 && !p.isOrganizer)) return "Set the price per player";
   return "";
 }
@@ -467,11 +485,20 @@ function GameCard({
                 {d.players.map((p, k) => (
                   <div key={p.id} className={`flex items-center gap-2 rounded-lg border px-2.5 py-1.5 ${p.paid ? "border-lime/30 bg-lime/[0.04]" : "border-line bg-black/30"}`}>
                     <span className="w-5 text-right font-[family-name:var(--font-jet)] text-xs text-muted">{k + 1}</span>
-                    <input
-                      className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none"
-                      value={p.name}
-                      onChange={(e) => setPlayer(p.id, { name: e.target.value })}
-                    />
+                    <div className="min-w-0 flex-1">
+                      <input
+                        className="w-full bg-transparent text-sm font-semibold outline-none"
+                        value={p.name}
+                        onChange={(e) => setPlayer(p.id, { name: e.target.value })}
+                      />
+                      <input
+                        className={`w-full bg-transparent font-[family-name:var(--font-jet)] text-[0.72rem] outline-none placeholder:text-led/70 ${p.phone ? "text-muted" : ""}`}
+                        inputMode="tel"
+                        placeholder="+ WhatsApp no."
+                        value={p.phone ?? ""}
+                        onChange={(e) => setPlayer(p.id, { phone: e.target.value.trim() ? e.target.value : null })}
+                      />
+                    </div>
                     {p.isOrganizer && <span className="chip chip-paid !px-1.5 !text-[0.65rem]">you</span>}
                     <input
                       type="number"

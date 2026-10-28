@@ -45,8 +45,8 @@ export default function PavilionPage() {
             <Link href="/bookings/new" className="btn btn-lime !px-6 !py-3.5 text-lg">
               + New booking
             </Link>
-            <Link href="/squad" className="btn !py-3.5">
-              View squad ledger
+            <Link href="/khata" className="btn !py-3.5">
+              Open khata
             </Link>
           </div>
         </div>

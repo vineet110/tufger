@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { AddPhone } from "@/components/AddPhone";
 import { copyText } from "@/components/Toast";
 import { initials, rupees } from "@/lib/format";
 import { fillTemplate, whatsappLink } from "@/lib/messages";
@@ -28,8 +29,10 @@ export function NudgeRun({
   const [i, setI] = useState(0);
   const [sent, setSent] = useState(0);
   const [draft, setDraft] = useState<string | null>(null);
+  const [savedPhones, setSavedPhones] = useState<Record<number, string>>({});
 
   const e = queue[i];
+  const phone = e ? (e.phone ?? savedPhones[e.player_id] ?? null) : null;
   const done = i >= queue.length;
   const message = e ? (draft ?? fillTemplate(template, b, e)) : "";
   const over = Math.floor(i / 6) + 1;
@@ -89,12 +92,18 @@ export function NudgeRun({
               <div className="min-w-0 flex-1">
                 <div className="display truncate text-4xl">{e.name}</div>
                 <div className="font-mono text-xs text-muted">
-                  {e.phone ? `+91 ${e.phone}` : "no number, copy the message instead"}
+                  {phone ? `+91 ${phone}` : "no number yet"}
                   {e.nudges > 0 && ` · nudged ${e.nudges}× before`}
                 </div>
               </div>
               <div className="led text-3xl dot">{rupees(e.amount)}</div>
             </div>
+
+            {!phone && (
+              <div className="mt-4">
+                <AddPhone playerId={e.player_id} name={e.name} onSaved={(ph) => setSavedPhones((m) => ({ ...m, [e.player_id]: ph }))} />
+              </div>
+            )}
 
             <textarea
               className="field mt-4 min-h-[130px] text-sm leading-relaxed"
@@ -103,9 +112,9 @@ export function NudgeRun({
             />
 
             <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
-              {e.phone ? (
+              {phone ? (
                 <a
-                  href={whatsappLink(e.phone, message)}
+                  href={whatsappLink(phone, message)}
                   target="_blank"
                   rel="noreferrer"
                   className="btn btn-wa !py-3.5 text-lg"

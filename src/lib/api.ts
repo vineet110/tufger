@@ -1,9 +1,12 @@
 import type {
+  Bill,
   BookingDetail,
   BookingSummary,
   Dashboard,
   Ground,
-  PlayerStats,
+  KhataDetail,
+  KhataRow,
+  PublicBill,
   PublicBooking,
   RosterRow,
   Settings,
@@ -108,7 +111,33 @@ export const api = {
     request<BookingDetail>(`/bookings/${id}/entries/${entryId}/amount`, json("PUT", { amount })),
   nudge: (id: number, entryId: number) => request<BookingDetail>(`/bookings/${id}/entries/${entryId}/nudge`, json("POST")),
 
-  players: () => request<PlayerStats[]>("/players"),
+  khata: () => request<KhataRow[]>("/khata"),
+  khataPlayer: (id: number) => request<KhataDetail>(`/khata/players/${id}`),
+  addPlayer: (name: string, phone: string | null) => request<KhataDetail>("/khata/players", json("POST", { name, phone })),
+  updatePlayer: (id: number, patch: { name?: string; phone?: string | null; archived?: boolean }) =>
+    request<KhataDetail>(`/khata/players/${id}`, json("PATCH", patch)),
+  deletePlayer: (id: number) => request<{ ok: true }>(`/khata/players/${id}`, json("DELETE")),
+  gotPayment: (id: number, amount: number, note: string, settle = true) =>
+    request<KhataDetail>(`/khata/players/${id}/payment`, json("POST", { amount, note, settle })),
+  addDue: (id: number, amount: number, note: string) => request<KhataDetail>(`/khata/players/${id}/due`, json("POST", { amount, note })),
+  deleteTxn: (txnId: number) => request<KhataDetail>(`/khata/txns/${txnId}`, json("DELETE")),
+  bills: () => request<Bill[]>("/khata/bills"),
+  publicBill: (slug: string) => request<PublicBill>(`/public/bill/${slug}`),
+  claimBill: (slug: string, utr: string) => request<PublicBill>(`/public/bill/${slug}/claim`, json("POST", { utr })),
+
+  /** Download the Excel backup of every player and their history. */
+  async downloadBackup() {
+    const token = getToken();
+    const res = await fetch(apiBase() + "/khata/export", { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (!res.ok) throw new ApiError(res.status, "Couldn't create the backup");
+    const name = res.headers.get("Content-Disposition")?.match(/filename="(.+?)"/)?.[1] ?? "tufger-khata.xlsx";
+    const url = URL.createObjectURL(await res.blob());
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
 
   publicBooking: (slug: string) => request<PublicBooking>(`/public/b/${slug}`),
   claim: (slug: string, entryId: number, utr: string) =>
