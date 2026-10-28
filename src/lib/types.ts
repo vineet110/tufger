@@ -180,6 +180,8 @@ export interface Me {
   username: string;
   display_name: string;
   role: Role;
+  has_passcode: boolean;
+  has_vault_password: boolean;
 }
 
 export interface HostAdminRow extends Me {

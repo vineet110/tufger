@@ -78,7 +78,7 @@ function fillGameInfo(message: string, d: Draft): string {
 
 export default function DugoutPage() {
   return (
-    <VaultGate title="Dugout" blurb="Paste your WhatsApp game posts and turn them into pay links. Enter the Tufger key to open it.">
+    <VaultGate title="Dugout" blurb="Paste your WhatsApp game posts and turn them into pay links. Enter your Dugout & Scorebook password to open it.">
       <Dugout />
     </VaultGate>
   );

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { isPremium, useMe } from "@/components/AdminShell";
-import { toast } from "@/components/Toast";
+import { copyText, toast } from "@/components/Toast";
 import { Upgrade } from "@/components/VaultGate";
 import { api, setToken, setVaultKey } from "@/lib/api";
 import { DEFAULT_LAST_MINUTE, DEFAULT_REFUNDS } from "@/lib/rules";
@@ -143,6 +143,7 @@ export default function SettingsPage() {
       </div>
 
       <Account />
+      {isPremium(me) && <VaultPassword />}
       {me.role === "admin" && <AdminPanel />}
       {!isPremium(me) && <Upgrade title="Premium" name={me.display_name} />}
 
@@ -172,6 +173,107 @@ function RulesBox({ label, value, onChange, onReset }: { label: string; value: s
         </button>
       </div>
       <textarea className="field min-h-[170px] text-sm leading-relaxed" value={value} onChange={(e) => onChange(e.target.value)} />
+    </div>
+  );
+}
+
+function VaultPassword() {
+  const { me, setMe } = useMe();
+  const [next, setNext] = useState("");
+  const [again, setAgain] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  return (
+    <section id="vault" className="slab scroll-mt-24 p-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="display text-3xl">Dugout &amp; Scorebook password</h2>
+        <span className={`chip ${me.has_vault_password ? "chip-paid" : "chip-claimed"}`}>{me.has_vault_password ? "set ✓" : "not set yet"}</span>
+      </div>
+      <p className="mt-1 text-sm text-muted">
+        Your own lock for Dugout and Scorebook, separate from your login. If you ever forget it, the Tufger key opens them too.
+      </p>
+      <form
+        className="mt-4 grid gap-3 sm:grid-cols-3"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (next.length < 6) return toast("At least 6 characters", "err");
+          if (next !== again) return toast("They don't match", "err");
+          setBusy(true);
+          try {
+            setMe(await api.setVaultPassword(next, confirm));
+            setVaultKey(null); // unlock again with the new one
+            setNext("");
+            setAgain("");
+            setConfirm("");
+            toast("Dugout & Scorebook password saved");
+          } catch (err) {
+            toast(err instanceof Error ? err.message : "Couldn't save it", "err");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <input type="password" className="field" autoComplete="new-password" placeholder="New password (6+)" value={next} onChange={(e) => setNext(e.target.value)} />
+        <input type="password" className="field" autoComplete="new-password" placeholder="Repeat it" value={again} onChange={(e) => setAgain(e.target.value)} />
+        <input
+          type="password"
+          className="field"
+          autoComplete="current-password"
+          placeholder={me.role === "admin" ? "Confirm: your passcode or Tufger key" : "Confirm: your login password or Tufger key"}
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+        />
+        <button className="btn btn-sm sm:col-span-3 sm:justify-self-start" disabled={busy || !next || !confirm}>
+          {busy ? "Saving…" : me.has_vault_password ? "Change password" : "Create password"}
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function PremiumPasscode() {
+  const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="mt-6 border-t border-line pt-5">
+      <div className="eyebrow">Pavilion passcode</div>
+      <p className="mt-1 text-sm text-muted">
+        As a premium host you can also sign in on the Pavilion with your own passcode. Need a new one? Enter your password and we&apos;ll make a fresh one
+        (your old passcode stops working).
+      </p>
+      {code ? (
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <span className="led dot text-4xl tracking-widest">{code}</span>
+          <button className="btn btn-sm" onClick={() => copyText(code, "Passcode copied")}>
+            Copy
+          </button>
+          <span className="text-xs text-muted">Save it now. It won&apos;t be shown again.</span>
+        </div>
+      ) : (
+        <form
+          className="mt-3 flex flex-wrap gap-3"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setBusy(true);
+            try {
+              const r = await api.newPasscode(password);
+              setToken(r.token);
+              setCode(r.passcode);
+              setPassword("");
+            } catch (err) {
+              toast(err instanceof Error ? err.message : "Couldn't make a passcode", "err");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <input type="password" className="field max-w-xs" autoComplete="current-password" placeholder="Your password or Tufger key" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <button className="btn btn-sm" disabled={busy || !password}>
+            {busy ? "Making…" : "Generate new passcode"}
+          </button>
+        </form>
+      )}
     </div>
   );
 }
@@ -212,13 +314,14 @@ function Account() {
         </span>
       </div>
       <form onSubmit={change} className="mt-4 grid gap-3 sm:grid-cols-3">
-        <input type="password" className="field" autoComplete="current-password" placeholder={`Current ${word}`} value={current} onChange={(e) => setCurrent(e.target.value)} />
+        <input type="password" className="field" autoComplete="current-password" placeholder={`Current ${word} or Tufger key`} value={current} onChange={(e) => setCurrent(e.target.value)} />
         <input type="password" className="field" autoComplete="new-password" placeholder={`New ${word}`} value={next} onChange={(e) => setNext(e.target.value)} />
         <input type="password" className="field" autoComplete="new-password" placeholder="Confirm new" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
         <button className="btn btn-sm sm:col-span-3 sm:justify-self-start" disabled={busy || !current || !next}>
           {busy ? "Saving…" : `Change ${word}`}
         </button>
       </form>
+      {me.role === "premium" && <PremiumPasscode />}
     </section>
   );
 }

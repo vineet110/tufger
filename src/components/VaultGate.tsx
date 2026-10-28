@@ -1,12 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, getVaultKey, setVaultKey } from "@/lib/api";
 import { ADMIN_CONTACT } from "@/lib/rules";
 import { isPremium, useMe } from "./AdminShell";
 
 /**
- * Second lock for Dugout and Scorebook. One Tufger key opens both, for this browser tab.
+ * Second lock for Dugout and Scorebook: the host's own password (set in Settings), or the
+ * Tufger key as a backup. Unlocking once opens both, for this browser tab.
  * Rendered inside AdminShell, which only mounts its children in the browser.
  */
 export function VaultGate({ title, blurb, children }: { title: string; blurb: string; children: React.ReactNode }) {
@@ -21,7 +23,7 @@ export function VaultGate({ title, blurb, children }: { title: string; blurb: st
 
   if (!isPremium(me)) return <Upgrade title={title} name={me.display_name} />;
   if (open) return <>{children}</>;
-  return <Unlock title={title} blurb={blurb} onOpen={() => setOpen(true)} />;
+  return <Unlock title={title} blurb={blurb} hasPassword={me.has_vault_password} onOpen={() => setOpen(true)} />;
 }
 
 export function LockButton() {
@@ -32,7 +34,7 @@ export function LockButton() {
   );
 }
 
-function Unlock({ title, blurb, onOpen }: { title: string; blurb: string; onOpen: () => void }) {
+function Unlock({ title, blurb, hasPassword, onOpen }: { title: string; blurb: string; hasPassword: boolean; onOpen: () => void }) {
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -47,6 +49,7 @@ function Unlock({ title, blurb, onOpen }: { title: string; blurb: string; onOpen
       onOpen();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't unlock");
+      setVaultKey(null);
     } finally {
       setBusy(false);
     }
@@ -58,10 +61,23 @@ function Unlock({ title, blurb, onOpen }: { title: string; blurb: string; onOpen
         <div className="eyebrow !text-led">🔒 Locked</div>
         <div className="led dot mt-2 text-4xl uppercase">{title}</div>
         <p className="mt-3 text-sm text-chalk-dim">{blurb}</p>
+        {!hasPassword && (
+          <div className="mt-5 rounded-xl border border-led/40 bg-led/[0.06] p-4 text-left text-sm">
+            <div className="font-semibold text-led">Create your Dugout &amp; Scorebook password first</div>
+            <p className="mt-1 text-chalk-dim">You haven&apos;t set one yet. It keeps your players&apos; accounts safe even if someone opens your logged-in phone.</p>
+            <Link href="/settings#vault" className="btn btn-led btn-sm mt-3">
+              Create it in Settings →
+            </Link>
+          </div>
+        )}
+        <label className="eyebrow label mt-6 text-left" htmlFor="vault-pass">
+          {hasPassword ? "Your Dugout & Scorebook password" : "Or unlock with the Tufger key"}
+        </label>
         <input
+          id="vault-pass"
           type="password"
           autoFocus
-          className="field led mt-6 text-center !text-2xl tracking-[0.4em]"
+          className="field led text-center !text-2xl tracking-[0.4em]"
           placeholder="••••"
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -70,7 +86,9 @@ function Unlock({ title, blurb, onOpen }: { title: string; blurb: string; onOpen
         <button className="btn btn-lime mt-5 w-full !py-3.5" disabled={!value || busy}>
           {busy ? "Checking…" : "Unlock"}
         </button>
-        <p className="mt-3 text-xs text-muted">One Tufger key opens both Dugout and Scorebook.</p>
+        <p className="mt-3 text-xs text-muted">
+          {hasPassword ? "Forgot it? The Tufger key works too. " : ""}Unlocking opens both Dugout and Scorebook.
+        </p>
       </form>
     </div>
   );

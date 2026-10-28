@@ -2,21 +2,43 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "@/components/Toast";
-import { api, setVaultKey } from "@/lib/api";
+import { copyText } from "@/components/Toast";
+import { api, type HostAdminResult, setVaultKey } from "@/lib/api";
 import type { HostAdminRow } from "@/lib/types";
 
 /** Site admin only: hosts, premium access and the Tufger key. */
+/** Ask for a passcode; empty means "generate one". Returns undefined when cancelled. */
+function askPasscode(who: string): string | null | undefined {
+  const v = prompt(`Pavilion passcode for ${who} (6+ characters).\nLeave empty to generate a random one.`);
+  if (v === null) return undefined;
+  if (v.trim() && v.trim().length < 6) {
+    toast("Passcodes need at least 6 characters", "err");
+    return undefined;
+  }
+  return v.trim() || null;
+}
+
 export function AdminPanel() {
   const [hosts, setHosts] = useState<HostAdminRow[] | null>(null);
+  const [revealed, setRevealed] = useState<{ who: string; code: string } | null>(null);
+  const [adminSecret, setAdminSecret] = useState(""); // admin passcode or Tufger key, for credential changes
+  const needConfirm = () => {
+    if (adminSecret) return false;
+    toast("First confirm it's you: enter your passcode or the Tufger key at the top of Hosts", "err");
+    return true;
+  };
   const load = () => api.hosts().then(setHosts, (e) => toast(e.message, "err"));
   useEffect(() => {
     load();
   }, []);
 
   async function update(h: HostAdminRow, patch: Parameters<typeof api.updateHost>[1], ok: string) {
+    const sensitive = patch.password || patch.passcode !== undefined || patch.new_passcode || patch.role === "premium";
+    if (sensitive && needConfirm()) return;
     try {
-      const row = await api.updateHost(h.id, patch);
+      const row: HostAdminResult = await api.updateHost(h.id, sensitive ? { ...patch, confirm: adminSecret } : patch);
       setHosts((list) => list?.map((x) => (x.id === row.id ? row : x)) ?? null);
+      if (row.passcode) setRevealed({ who: `${row.display_name} (@${row.username})`, code: row.passcode });
       toast(ok);
     } catch (e) {
       toast(e instanceof Error ? e.message : "Couldn't update", "err");
@@ -37,9 +59,23 @@ export function AdminPanel() {
           </span>
         </div>
         <p className="mt-1 text-sm text-muted">
-          Hosts sign up from the Pavilion page. Make someone <b className="text-led">premium</b> to give them Dugout and Scorebook (they still need the
-          Tufger key).
+          Hosts sign up from the Pavilion page. Make someone <b className="text-led">premium</b> to give them Dugout, Scorebook (with the Tufger key)
+          and their own Pavilion passcode. Each passcode opens only that person&apos;s account.
         </p>
+
+        <label className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-black/30 p-3 text-sm">
+          <span className="text-chalk-dim">🔐 Confirm it&apos;s you for upgrades, passcodes and password resets:</span>
+          <input
+            type="password"
+            className="field max-w-[240px] !py-2"
+            autoComplete="current-password"
+            placeholder="Your passcode or Tufger key"
+            value={adminSecret}
+            onChange={(e) => setAdminSecret(e.target.value)}
+          />
+        </label>
+
+        {revealed && <PasscodeReveal who={revealed.who} code={revealed.code} onClose={() => setRevealed(null)} />}
 
         <div className="mt-4 divide-y divide-line overflow-hidden rounded-xl border border-line">
           {hosts?.map((h) => (
@@ -47,6 +83,7 @@ export function AdminPanel() {
               <div className="min-w-[160px] flex-1">
                 <div className="font-semibold">
                   {h.display_name} <span className="text-xs text-muted">@{h.username}</span>
+                  {h.has_passcode && <span className="ml-2 text-xs text-led" title="Can sign in on the Pavilion with a passcode">🔑 Pavilion</span>}
                 </div>
                 <div className="text-xs text-muted">
                   {h.bookings} booking{h.bookings === 1 ? "" : "s"} · {h.players} players · joined{" "}
@@ -67,12 +104,33 @@ export function AdminPanel() {
                         key={r}
                         aria-pressed={h.role === r}
                         className="!px-2.5 !py-1 !text-xs"
-                        onClick={() => h.role !== r && update(h, { role: r }, r === "premium" ? `${h.display_name} is now premium ⭐` : `${h.display_name} is now a normal host`)}
+                        onClick={() => {
+                          if (h.role === r) return;
+                          if (r === "host") {
+                            if (confirm(`Make ${h.display_name} a normal host? Their Pavilion passcode stops working. Their data stays.`))
+                              update(h, { role: "host" }, `${h.display_name} is now a normal host`);
+                            return;
+                          }
+                          const passcode = askPasscode(h.display_name);
+                          if (passcode !== undefined) update(h, { role: "premium", passcode }, `${h.display_name} is now premium ⭐`);
+                        }}
                       >
                         {r === "premium" ? "⭐ premium" : "host"}
                       </button>
                     ))}
                   </div>
+                  {h.role === "premium" && (
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => {
+                        const passcode = askPasscode(h.display_name);
+                        if (passcode !== undefined)
+                          update(h, passcode ? { passcode } : { new_passcode: true }, `New Pavilion passcode for @${h.username}`);
+                      }}
+                    >
+                      New passcode
+                    </button>
+                  )}
                   <button
                     className="btn btn-sm"
                     onClick={() => {
@@ -99,7 +157,14 @@ export function AdminPanel() {
           ))}
         </div>
 
-        <CreateHost onCreated={(row) => setHosts((list) => [...(list ?? []), row])} />
+        <CreateHost
+          confirm={adminSecret}
+          needConfirm={needConfirm}
+          onCreated={(row) => {
+            setHosts((list) => [...(list ?? []), row]);
+            if (row.passcode) setRevealed({ who: `${row.display_name} (@${row.username})`, code: row.passcode });
+          }}
+        />
       </section>
     </>
   );
@@ -108,23 +173,28 @@ export function AdminPanel() {
 function TufgerKey() {
   const [key, setKey] = useState("");
   const [confirmKey, setConfirmKey] = useState("");
+  const [me, setMeSecret] = useState("");
   const [busy, setBusy] = useState(false);
   return (
     <section className="slab p-6">
       <h2 className="display text-3xl">Tufger key</h2>
-      <p className="mt-1 text-sm text-muted">The second lock on Dugout and Scorebook, shared by you and every premium host. Changing it locks everyone out until they enter the new one.</p>
+      <p className="mt-1 text-sm text-muted">
+        The backup key: it opens Dugout and Scorebook for any premium host, and confirms sensitive steps (password and passcode changes) when someone forgets
+        their password. Keep it private.
+      </p>
       <form
-        className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]"
+        className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]"
         onSubmit={async (e) => {
           e.preventDefault();
           if (key.length < 4) return toast("At least 4 characters", "err");
           if (key !== confirmKey) return toast("The keys don't match", "err");
           setBusy(true);
           try {
-            await api.setTufgerKey(key);
+            await api.setTufgerKey(key, me);
             setVaultKey(null); // this tab unlocks again with the new key
             setKey("");
             setConfirmKey("");
+            setMeSecret("");
             toast("Tufger key changed. Tell your premium hosts");
           } catch (err) {
             toast(err instanceof Error ? err.message : "Couldn't change the key", "err");
@@ -135,7 +205,8 @@ function TufgerKey() {
       >
         <input type="password" className="field" autoComplete="new-password" placeholder="New Tufger key" value={key} onChange={(e) => setKey(e.target.value)} />
         <input type="password" className="field" autoComplete="new-password" placeholder="Confirm key" value={confirmKey} onChange={(e) => setConfirmKey(e.target.value)} />
-        <button className="btn" disabled={busy || !key}>
+        <input type="password" className="field" autoComplete="current-password" placeholder="Your passcode or current key" value={me} onChange={(e) => setMeSecret(e.target.value)} />
+        <button className="btn" disabled={busy || !key || !me}>
           {busy ? "Saving…" : "Change key"}
         </button>
       </form>
@@ -143,12 +214,39 @@ function TufgerKey() {
   );
 }
 
-function CreateHost({ onCreated }: { onCreated: (row: HostAdminRow) => void }) {
+function PasscodeReveal({ who, code, onClose }: { who: string; code: string; onClose: () => void }) {
+  return (
+    <div className="board rise mt-4 p-5 pt-7">
+      <div className="eyebrow !text-led">Pavilion passcode for {who}</div>
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        <span className="led dot text-4xl tracking-widest">{code}</span>
+        <button className="btn btn-sm" onClick={() => copyText(code, "Passcode copied")}>
+          Copy
+        </button>
+        <button className="btn btn-sm btn-ghost" onClick={onClose}>
+          Done
+        </button>
+      </div>
+      <p className="mt-2 text-xs text-muted">Share it with them privately. It won&apos;t be shown again (you can always make a new one).</p>
+    </div>
+  );
+}
+
+function CreateHost({
+  confirm,
+  needConfirm,
+  onCreated,
+}: {
+  confirm: string;
+  needConfirm: () => boolean;
+  onCreated: (row: HostAdminResult) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [username, setUsername] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"premium" | "host">("premium");
+  const [passcode, setPasscode] = useState("");
   const [busy, setBusy] = useState(false);
 
   if (!open)
@@ -165,15 +263,18 @@ function CreateHost({ onCreated }: { onCreated: (row: HostAdminRow) => void }) {
         e.preventDefault();
         if (!/^[a-zA-Z0-9_.]{3,30}$/.test(username)) return toast("Username: 3–30 letters, numbers, _ or .", "err");
         if (password.length < 8) return toast("Password needs at least 8 characters", "err");
+        if (role === "premium" && passcode && passcode.length < 6) return toast("Passcodes need at least 6 characters", "err");
+        if (needConfirm()) return;
         setBusy(true);
         try {
-          const row = await api.createHost({ username, display_name: name, password, role });
+          const row = await api.createHost({ username, display_name: name, password, role, passcode: role === "premium" ? passcode || null : null, confirm });
           onCreated(row);
           toast(`@${row.username} created. Share the username and password with them`);
           setOpen(false);
           setUsername("");
           setName("");
           setPassword("");
+          setPasscode("");
         } catch (err) {
           toast(err instanceof Error ? err.message : "Couldn't create the host", "err");
         } finally {
@@ -191,6 +292,16 @@ function CreateHost({ onCreated }: { onCreated: (row: HostAdminRow) => void }) {
           </button>
         ))}
       </div>
+      {role === "premium" && (
+        <input
+          className="field sm:col-span-2"
+          type="text"
+          autoComplete="off"
+          placeholder="Pavilion passcode (6+), or leave empty to generate one"
+          value={passcode}
+          onChange={(e) => setPasscode(e.target.value.trim())}
+        />
+      )}
       <div className="flex gap-2 sm:col-span-2">
         <button className="btn btn-lime btn-sm" disabled={busy || !username || !name.trim() || !password}>
           {busy ? "Creating…" : "Create host"}

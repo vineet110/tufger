@@ -40,6 +40,11 @@ _ADDED_COLUMNS = {
         "pay_slug": "VARCHAR(16)",
         "host_id": "INTEGER",
     },
+    "hosts": {
+        "passcode_hash": "VARCHAR(200)",
+        "passcode_lookup": "VARCHAR(64)",
+        "vault_hash": "VARCHAR(200)",
+    },
     "app_settings": {
         "host_id": "INTEGER",
         "house_refunds": "TEXT NOT NULL DEFAULT ''",
@@ -53,6 +58,7 @@ _ADDED_INDEXES = [
     "CREATE INDEX IF NOT EXISTS ix_players_host_id ON players (host_id)",
     "CREATE UNIQUE INDEX IF NOT EXISTS ux_app_settings_host ON app_settings (host_id)",
     "CREATE UNIQUE INDEX IF NOT EXISTS ux_players_host_phone ON players (host_id, phone)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS ux_hosts_passcode_lookup ON hosts (passcode_lookup)",
 ]
 
 

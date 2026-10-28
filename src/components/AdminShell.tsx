@@ -165,7 +165,7 @@ function Login({ onIn }: { onIn: (me: Me) => void }) {
           <p className="mt-3 text-chalk-dim">Turf money, collected. Without the chasing.</p>
         </div>
         <form onSubmit={submit} className="board rise p-7 pt-9">
-          <div className="eyebrow mb-1 text-center !text-led">Organiser entry</div>
+          <div className="eyebrow mb-1 text-center !text-led">Admin &amp; premium entry</div>
           <div className="led mb-6 text-center text-4xl dot">PAVILION</div>
           <label className="eyebrow label" htmlFor="code">
             Passcode

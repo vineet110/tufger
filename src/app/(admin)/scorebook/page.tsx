@@ -13,7 +13,7 @@ type Filter = "owes" | "all" | "advance" | "hidden";
 
 export default function ScorebookPage() {
   return (
-    <VaultGate title="Scorebook" blurb="Every player's account, payments and bills. Enter the Tufger key to open it.">
+    <VaultGate title="Scorebook" blurb="Every player's account, payments and bills. Enter your Dugout & Scorebook password to open it.">
       <Scorebook />
     </VaultGate>
   );

@@ -27,17 +27,32 @@ class Host(Base):
     """Someone who runs games on Tufger. role: admin (site owner) | premium | host."""
 
     __tablename__ = "hosts"
+    __table_args__ = (Index("ux_hosts_passcode_lookup", "passcode_lookup", unique=True),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(String(30), unique=True, index=True)  # stored lowercase
     display_name: Mapped[str] = mapped_column(String(80))
     password_hash: Mapped[str] = mapped_column(String(200))
+    # Pavilion passcode (admin + premium only). lookup = keyed HMAC so a passcode maps to exactly one account.
+    passcode_hash: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    passcode_lookup: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    vault_hash: Mapped[str | None] = mapped_column(String(200), nullable=True)  # own Dugout & Scorebook password
     role: Mapped[str] = mapped_column(String(10), default="host")
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     token_version: Mapped[int] = mapped_column(Integer, default=0)  # bump to sign out every session
     failed_logins: Mapped[int] = mapped_column(Integer, default=0)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class LoginThrottle(Base):
+    """Failed logins per network address, so passcodes can't be guessed in bulk."""
+
+    __tablename__ = "login_throttle"
+
+    ip: Mapped[str] = mapped_column(String(64), primary_key=True)
+    fails: Mapped[int] = mapped_column(Integer, default=0)
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class SiteConfig(Base):

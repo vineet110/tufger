@@ -313,6 +313,8 @@ class Me(BaseModel):
     username: str
     display_name: str
     role: Literal["admin", "premium", "host"]
+    has_passcode: bool = False
+    has_vault_password: bool = False
 
 
 class TokenOut(BaseModel):
@@ -332,21 +334,43 @@ class HostAdminRow(Me):
     players: int
 
 
+PASSCODE_FIELD = Field(default=None, min_length=6, max_length=40)
+
+
 class HostCreateIn(HostSignupIn):
     role: Literal["premium", "host"] = "premium"
+    passcode: str | None = PASSCODE_FIELD  # premium only; empty = generate one
+    confirm: str = Field(min_length=1, max_length=200)  # admin's passcode or the Tufger key
 
 
 class HostPatch(BaseModel):
     role: Literal["premium", "host"] | None = None
     active: bool | None = None
+    confirm: str | None = Field(default=None, max_length=200)  # admin's passcode or the Tufger key, for credential changes
     password: str | None = Field(default=None, min_length=8, max_length=200)  # admin reset
+    passcode: str | None = PASSCODE_FIELD  # set a Pavilion passcode (premium only)
+    new_passcode: bool = False  # generate a fresh Pavilion passcode (premium only)
 
 
 class VaultKeyIn(BaseModel):
     key: str = Field(min_length=4, max_length=100)
+    confirm: str = Field(min_length=1, max_length=200)  # admin's passcode or the current Tufger key
+
+
+class VaultPasswordIn(BaseModel):
+    new: str = Field(min_length=6, max_length=200)
+    confirm: str = Field(min_length=1, max_length=200)  # account password/passcode or the Tufger key
 
 
 class PublicRules(BaseModel):
     host_name: str
     refunds: str
     last_minute: str
+
+
+class HostAdminResult(HostAdminRow):
+    passcode: str | None = None  # shown once, right after it's set or generated
+
+
+class PasscodeRegenIn(BaseModel):
+    password: str = Field(min_length=1, max_length=200)

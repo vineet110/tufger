@@ -111,11 +111,29 @@ export const api = {
 
   // site admin only
   hosts: () => request<HostAdminRow[]>("/admin/hosts"),
-  createHost: (body: { username: string; display_name: string; password: string; role: "premium" | "host" }) =>
-    request<HostAdminRow>("/admin/hosts", json("POST", body)),
-  updateHost: (id: number, patch: { role?: "premium" | "host"; active?: boolean; password?: string }) =>
-    request<HostAdminRow>(`/admin/hosts/${id}`, json("PATCH", patch)),
-  setTufgerKey: (key: string) => request<{ ok: true }>("/admin/tufger-key", json("PUT", { key })),
+  createHost: (body: {
+    username: string;
+    display_name: string;
+    password: string;
+    role: "premium" | "host";
+    passcode?: string | null;
+    confirm: string;
+  }) =>
+    request<HostAdminResult>("/admin/hosts", json("POST", body)),
+  updateHost: (
+    id: number,
+    patch: {
+      role?: "premium" | "host";
+      active?: boolean;
+      password?: string;
+      passcode?: string | null;
+      new_passcode?: boolean;
+      confirm?: string;
+    },
+  ) => request<HostAdminResult>(`/admin/hosts/${id}`, json("PATCH", patch)),
+  newPasscode: (password: string) => request<Session & { passcode: string }>("/auth/passcode/new", json("POST", { password })),
+  setTufgerKey: (key: string, confirm: string) => request<{ ok: true }>("/admin/tufger-key", json("PUT", { key, confirm })),
+  setVaultPassword: (next: string, confirm: string) => request<Me>("/auth/vault-password", json("PUT", { new: next, confirm })),
   publicRules: (host: string) => request<PublicRules>(`/public/rules?host=${encodeURIComponent(host)}`),
 
   dashboard: () => request<Dashboard>("/dashboard"),
@@ -202,3 +220,6 @@ export interface Session {
   token: string;
   me: Me;
 }
+
+/** An admin action's result; passcode is only present right after one is set or generated. */
+export type HostAdminResult = HostAdminRow & { passcode: string | null };

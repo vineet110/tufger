@@ -57,11 +57,13 @@ Players then open `https://<your-project>.vercel.app/pay/<code>`.
 
 ## Accounts
 
-- **Admin**: logs in on the Pavilion screen with the passcode. `ADMIN_PASSCODE` only creates the admin account on
-  the very first start; after that, change it in **Settings → Account**.
-- **Hosts** sign up with **Sign up as host**. Each host sees only their own grounds, bookings and players.
-- **Premium hosts** (upgraded by the admin in **Settings → Hosts**) also get Dugout and Scorebook, which ask for the
-  **Tufger key**. `TUFGER_KEY` is the starting key; the admin can change it in Settings.
+- **Admin** and **premium hosts** sign in on the Pavilion screen with their own passcode. Each passcode opens exactly
+  one account. `ADMIN_PASSCODE` only creates the admin on the very first start; change it in **Settings → Account**.
+- **Hosts** use **Sign up as host** / **Log in as host** (username + password). Each host sees only their own data.
+- The admin makes hosts **premium** (or creates premium hosts) in **Settings → Hosts**, which also sets their Pavilion
+  passcode. Premium hosts get Dugout and Scorebook, locked by their own **Dugout & Scorebook password** (set in Settings).
+- The **Tufger key** is the backup: it opens Dugout/Scorebook and confirms sensitive steps (password, passcode and key
+  changes, admin actions). `TUFGER_KEY` is the starting key; the admin changes it in Settings.
 
 ## How it works
 
