@@ -1,0 +1,171 @@
+from datetime import date, datetime, time
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+Sport = Literal["cricket", "football", "other"]
+EntryStatus = Literal["pending", "claimed", "paid"]
+
+
+class LoginIn(BaseModel):
+    passcode: str
+
+
+class SettingsIO(BaseModel):
+    organizer_name: str = Field(max_length=80)
+    upi_id: str = Field(default="", max_length=120)
+    payee_name: str = Field(default="", max_length=80)
+    reminder_template: str
+
+
+class GroundIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    area: str = Field(default="", max_length=120)
+    sport: Sport = "cricket"
+    price_per_hour: int = Field(ge=0)
+
+
+class GroundOut(GroundIn):
+    id: int
+    bookings: int = 0
+
+
+class RosterPlayer(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    phone: str | None = None
+    amount: int | None = Field(default=None, ge=0)  # custom share, else auto-split
+
+
+class BookingIn(BaseModel):
+    ground_id: int
+    play_date: date
+    start_time: time
+    duration_min: int = Field(ge=15, le=24 * 60)
+    total_amount: int = Field(gt=0)
+    round_to: int = Field(default=1, ge=1)
+    include_organizer: bool = False
+    notes: str = ""
+    players: list[RosterPlayer] = Field(min_length=1)
+
+
+class BookingPatch(BaseModel):
+    play_date: date | None = None
+    start_time: time | None = None
+    duration_min: int | None = Field(default=None, ge=15)
+    total_amount: int | None = Field(default=None, gt=0)
+    notes: str | None = None
+    archived: bool | None = None
+
+
+class EntryOut(BaseModel):
+    id: int
+    player_id: int
+    name: str
+    phone: str | None
+    amount: int
+    is_organizer: bool
+    status: EntryStatus
+    utr: str
+    claimed_at: datetime | None
+    paid_at: datetime | None
+    nudges: int
+
+
+class EventOut(BaseModel):
+    kind: str
+    message: str
+    created_at: datetime
+
+
+class Tally(BaseModel):
+    target: int
+    collected: int
+    claimed: int
+    players: int
+    paid_count: int
+    claimed_count: int
+    pending_count: int
+
+
+class BookingSummary(BaseModel):
+    id: int
+    slug: str
+    ground_name: str
+    ground_area: str
+    sport: str
+    play_date: date
+    start_time: time
+    duration_min: int
+    total_amount: int
+    archived: bool
+    created_at: datetime
+    tally: Tally
+
+
+class BookingDetail(BookingSummary):
+    round_to: int
+    notes: str
+    entries: list[EntryOut]
+    events: list[EventOut]
+
+
+class EntryStatusIn(BaseModel):
+    status: EntryStatus
+
+
+class EntryAmountIn(BaseModel):
+    amount: int = Field(ge=0)
+
+
+class AddPlayersIn(BaseModel):
+    players: list[RosterPlayer] = Field(min_length=1)
+    resplit: bool = True
+
+
+class ClaimIn(BaseModel):
+    entry_id: int
+    utr: str = Field(default="", max_length=40)
+
+
+class PublicEntry(BaseModel):
+    id: int
+    name: str
+    amount: int
+    status: EntryStatus
+    is_organizer: bool
+
+
+class PublicBooking(BaseModel):
+    slug: str
+    ground_name: str
+    ground_area: str
+    sport: str
+    play_date: date
+    start_time: time
+    duration_min: int
+    total_amount: int
+    organizer_name: str
+    upi_id: str
+    payee_name: str
+    tally: Tally
+    entries: list[PublicEntry]
+
+
+class PlayerStats(BaseModel):
+    id: int
+    name: str
+    phone: str | None
+    games: int
+    paid_total: int
+    outstanding: int
+    avg_pay_hours: float | None
+    rating: str
+
+
+class DashboardOut(BaseModel):
+    active_bookings: int
+    to_collect: int
+    collected_all_time: int
+    awaiting_confirmation: int
+    players: int
+    next_game: BookingSummary | None

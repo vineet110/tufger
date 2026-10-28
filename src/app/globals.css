@@ -1,0 +1,437 @@
+@import "tailwindcss";
+
+/* ────────────────────────────────────────────────────────────
+   TUFGER — "floodlit night match"
+   Mowed turf, chalk lines, an amber LED scoreboard for money,
+   and neon-lime for anything settled.
+   ──────────────────────────────────────────────────────────── */
+
+:root {
+  --night: #050c08;
+  --turf-a: #0b1f13;
+  --turf-b: #0e2617;
+  --panel: #07100b;
+  --board: #030604;
+  --chalk: #eef3e6;
+  --chalk-dim: #a9b8a6;
+  --muted: #6f8775;
+  --line: rgba(238, 243, 230, 0.12);
+  --led: #ffb21e;
+  --led-dim: #4a3510;
+  --lime: #c6ff3a;
+  --lime-deep: #8fd400;
+  --red: #ff5b4a;
+  --sky: #7fd8ff;
+}
+
+@theme inline {
+  --color-night: var(--night);
+  --color-panel: var(--panel);
+  --color-board: var(--board);
+  --color-chalk: var(--chalk);
+  --color-chalk-dim: var(--chalk-dim);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-led: var(--led);
+  --color-lime: var(--lime);
+  --color-red: var(--red);
+  --color-sky: var(--sky);
+  --font-display: var(--font-shoulders);
+  --font-led: var(--font-doto);
+  --font-sans: var(--font-instrument);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  min-height: 100dvh;
+  color: var(--chalk);
+  font-family: var(--font-instrument), system-ui, sans-serif;
+  background-color: var(--night);
+  /* floodlights + mowed stripes */
+  background-image:
+    radial-gradient(60rem 38rem at 8% -12%, rgba(230, 255, 210, 0.13), transparent 60%),
+    radial-gradient(52rem 34rem at 96% -10%, rgba(230, 255, 210, 0.1), transparent 60%),
+    radial-gradient(120% 80% at 50% 120%, rgba(0, 0, 0, 0.75), transparent 70%),
+    repeating-linear-gradient(100deg, var(--turf-a) 0 72px, var(--turf-b) 72px 144px);
+  background-attachment: fixed;
+}
+
+::selection {
+  background: var(--lime);
+  color: var(--night);
+}
+
+@layer components {
+/* ───────── type ───────── */
+.display {
+  font-family: var(--font-shoulders), sans-serif;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  line-height: 0.88;
+}
+.eyebrow {
+  font-family: var(--font-shoulders), sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 0.72rem;
+  color: var(--chalk-dim);
+}
+.led {
+  font-family: var(--font-doto), monospace;
+  font-weight: 900;
+  color: var(--led);
+  text-shadow:
+    0 0 6px rgba(255, 178, 30, 0.55),
+    0 0 22px rgba(255, 178, 30, 0.25);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.led-lime {
+  color: var(--lime);
+  text-shadow:
+    0 0 6px rgba(198, 255, 58, 0.55),
+    0 0 22px rgba(198, 255, 58, 0.22);
+}
+.led-red {
+  color: var(--red);
+  text-shadow: 0 0 8px rgba(255, 91, 74, 0.5);
+}
+
+/* ───────── surfaces ───────── */
+.board {
+  position: relative;
+  background-color: var(--board);
+  background-image: radial-gradient(rgba(255, 178, 30, 0.07) 1px, transparent 1.4px);
+  background-size: 7px 7px;
+  border: 1px solid #1d2a20;
+  box-shadow:
+    inset 0 0 0 4px #0b130d,
+    inset 0 0 0 5px #1a2a1e,
+    0 30px 60px -30px rgba(0, 0, 0, 0.9);
+  border-radius: 6px;
+}
+.board::before,
+.board::after {
+  /* rivets */
+  content: "";
+  position: absolute;
+  top: 10px;
+  width: 6px;
+  height: 6px;
+  border-radius: 99px;
+  background: #2b3a2f;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+.board::before {
+  left: 10px;
+}
+.board::after {
+  right: 10px;
+}
+
+.slab {
+  background: linear-gradient(180deg, rgba(7, 16, 11, 0.92), rgba(5, 12, 8, 0.92));
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  backdrop-filter: blur(6px);
+}
+
+.chalk-rule {
+  height: 2px;
+  background: repeating-linear-gradient(90deg, rgba(238, 243, 230, 0.55) 0 14px, transparent 14px 22px);
+  opacity: 0.6;
+}
+
+/* ───────── controls ───────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: var(--font-shoulders), sans-serif;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.95rem;
+  padding: 0.7rem 1.15rem;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  color: var(--chalk);
+  background: rgba(238, 243, 230, 0.04);
+  transition:
+    transform 0.12s ease,
+    background 0.15s ease,
+    box-shadow 0.2s ease,
+    border-color 0.15s;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.btn:hover {
+  background: rgba(238, 243, 230, 0.09);
+  border-color: rgba(238, 243, 230, 0.25);
+}
+.btn:active {
+  transform: translateY(1px) scale(0.99);
+}
+.btn:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.btn-lime {
+  background: var(--lime);
+  color: #0a1404;
+  border-color: var(--lime);
+  box-shadow: 0 0 0 0 rgba(198, 255, 58, 0.5), 0 10px 30px -10px rgba(198, 255, 58, 0.55);
+}
+.btn-lime:hover {
+  background: #d6ff6a;
+  border-color: #d6ff6a;
+}
+.btn-led {
+  background: var(--led);
+  color: #1a1000;
+  border-color: var(--led);
+  box-shadow: 0 10px 30px -12px rgba(255, 178, 30, 0.7);
+}
+.btn-led:hover {
+  background: #ffc552;
+  border-color: #ffc552;
+}
+.btn-wa {
+  background: #1fbf5b;
+  color: #031a0b;
+  border-color: #1fbf5b;
+}
+.btn-wa:hover {
+  background: #33d16d;
+}
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+}
+.btn-sm {
+  padding: 0.42rem 0.7rem;
+  font-size: 0.78rem;
+  border-radius: 8px;
+}
+
+.field {
+  width: 100%;
+  background: rgba(3, 6, 4, 0.75);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.72rem 0.9rem;
+  color: var(--chalk);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.field::placeholder {
+  color: #4f6455;
+}
+.field:focus {
+  border-color: var(--lime);
+  box-shadow: 0 0 0 3px rgba(198, 255, 58, 0.14);
+}
+select.field {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--chalk-dim) 50%),
+    linear-gradient(135deg, var(--chalk-dim) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 55%, calc(100% - 13px) 55%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+}
+input[type="date"].field::-webkit-calendar-picker-indicator,
+input[type="time"].field::-webkit-calendar-picker-indicator {
+  filter: invert(0.85) sepia(1) hue-rotate(40deg);
+}
+.label {
+  display: block;
+  margin-bottom: 0.45rem;
+}
+
+/* segmented pill selector */
+.seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.3rem;
+  background: rgba(3, 6, 4, 0.7);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.seg button {
+  padding: 0.45rem 0.8rem;
+  border-radius: 8px;
+  font-family: var(--font-shoulders), sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  color: var(--chalk-dim);
+  transition: background 0.15s, color 0.15s;
+}
+.seg button[aria-pressed="true"] {
+  background: var(--chalk);
+  color: var(--night);
+}
+
+/* ───────── status chips ───────── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid currentColor;
+}
+.chip-paid {
+  color: var(--lime);
+  background: rgba(198, 255, 58, 0.08);
+}
+.chip-claimed {
+  color: var(--led);
+  background: rgba(255, 178, 30, 0.08);
+}
+.chip-pending {
+  color: var(--chalk-dim);
+  background: rgba(238, 243, 230, 0.04);
+  border-style: dashed;
+}
+
+/* ───────── pitch & jerseys ───────── */
+.pitch {
+  position: relative;
+  border-radius: 28px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(220, 255, 200, 0.12), transparent 65%),
+    repeating-linear-gradient(0deg, #12341f 0 34px, #0f2d1a 34px 68px);
+  border: 2px solid rgba(238, 243, 230, 0.35);
+  box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.55), 0 30px 80px -40px #000;
+}
+.jersey {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+.jersey:hover {
+  transform: translate(-50%, -54%) scale(1.06);
+}
+.jersey .disc {
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-shoulders), sans-serif;
+  font-weight: 900;
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  transition: all 0.3s ease;
+}
+.jersey .tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  background: rgba(3, 6, 4, 0.8);
+  max-width: 92px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jersey[data-status="pending"] .disc {
+  background: rgba(3, 6, 4, 0.55);
+  border: 2px dashed rgba(238, 243, 230, 0.55);
+  color: var(--chalk-dim);
+}
+.jersey[data-status="claimed"] .disc {
+  background: var(--led);
+  color: #1a1000;
+  border: 2px solid #ffd27a;
+  animation: pulse-led 1.6s ease-in-out infinite;
+}
+.jersey[data-status="paid"] .disc {
+  background: var(--lime);
+  color: #0a1404;
+  border: 2px solid #eaffb8;
+  box-shadow: 0 0 22px rgba(198, 255, 58, 0.6);
+}
+.jersey[data-selected="true"] .disc {
+  outline: 3px solid var(--sky);
+  outline-offset: 3px;
+}
+@keyframes pulse-led {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 178, 30, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(255, 178, 30, 0);
+  }
+}
+
+/* ───────── ticker ───────── */
+.ticker {
+  overflow: hidden;
+  white-space: nowrap;
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+.ticker > div {
+  display: inline-block;
+  padding-left: 100%;
+  animation: ticker 38s linear infinite;
+}
+@keyframes ticker {
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+}
+
+/* ───────── misc animation ───────── */
+.rise {
+  animation: rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+.blink {
+  animation: blink 1.1s steps(2, start) infinite;
+}
+@keyframes blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .ticker > div {
+    padding-left: 0;
+  }
+}

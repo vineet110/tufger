@@ -1,0 +1,8 @@
+.venv
+.env
+.env.local
+*.db
+.next
+node_modules
+docs
+**/__pycache__
