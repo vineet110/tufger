@@ -79,9 +79,15 @@ export function PayView({ params }: { params: Promise<{ slug: string }> }) {
           <TicketCell k="Duration" v={fmtDuration(b.duration_min)} />
         </div>
         <div className="border-t border-line px-5 py-3 text-xs text-chalk-dim">
-          Collected by <span className="text-chalk">{b.organizer_name}</span> · ground {rupees(b.total_amount)} split across {b.tally.players}
+          Collected by <span className="text-chalk">{b.organizer_name}</span> · {rupees(b.total_amount)} across {b.tally.players} players
           {b.discount > 0 && <span className="text-lime"> · {rupees(b.discount)} discount applied 🎉</span>}
         </div>
+        {playerNote(b.notes) && (
+          <div className="border-t border-line px-5 py-3 text-sm whitespace-pre-line text-chalk">
+            <div className="eyebrow mb-1 !text-led">Note from {b.organizer_name}</div>
+            {playerNote(b.notes)}
+          </div>
+        )}
       </section>
 
       <div className="mt-5">
@@ -292,4 +298,15 @@ function Sparks() {
       ))}
     </div>
   );
+}
+
+/** The organiser's note as players should read it: no pay-link placeholders. */
+function playerNote(notes: string): string {
+  return notes
+    .split("\n")
+    .filter((l) => !l.includes("{link}"))
+    .join("\n")
+    .replaceAll("{amount}", "your share")
+    .replace(/([*_~])(\S(?:.*?\S)?)\1/g, "$2") // WhatsApp *bold* / _italic_ / ~strike~
+    .trim();
 }

@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     admin_passcode: str = "tufger"
     secret_key: str = "dev-secret-change-me"
     token_ttl_days: int = 30
+    # Second key that unlocks Team Sheet; empty = Team Sheet disabled
+    tufger_key: str = ""
 
     @property
     def sqlalchemy_url(self) -> str:

@@ -86,6 +86,7 @@ export interface PublicBooking {
   total_amount: number;
   base_amount: number;
   discount: number;
+  notes: string;
   organizer_name: string;
   upi_id: string;
   payee_name: string;

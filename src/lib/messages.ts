@@ -34,12 +34,28 @@ export function whatsappLink(phone: string | null, text: string): string {
   return phone ? `https://wa.me/91${phone}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
 }
 
+/** The amount most players pay, used for {amount} in a game's custom message. */
+export function commonAmount(amounts: number[]): number {
+  const counts = new Map<number, number>();
+  amounts.forEach((a) => counts.set(a, (counts.get(a) ?? 0) + 1));
+  return [...counts.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? 0;
+}
+
+/** Fill a custom game message: {link} → pay link, {amount} → usual share. */
+export function fillNote(note: string, link: string, amount: number): string {
+  return note.replaceAll("{link}", link).replaceAll("{amount}", String(amount));
+}
+
 /** Status board to paste into the WhatsApp group. */
 export function groupMessage(b: BookingDetail): string {
   const paid = b.entries.filter((e) => e.status === "paid");
   const claimed = b.entries.filter((e) => e.status === "claimed");
   const pending = b.entries.filter((e) => e.status === "pending");
+  const note = b.notes.trim()
+    ? [fillNote(b.notes.trim(), payLink(b.slug), commonAmount(b.entries.filter((e) => !e.is_organizer).map((e) => e.amount))), ""]
+    : [];
   const lines = [
+    ...note,
     `${sportEmoji[b.sport]} *${b.ground_name}*`,
     `📅 ${fmtDate(b.play_date, { weekday: "long", day: "numeric", month: "short" })} · ${fmtTime(b.start_time)} (${fmtDuration(b.duration_min)})`,
     ...(b.discount > 0 ? [`🏷️ ${rupees(b.discount)} discount applied${b.discount_note ? ` (${b.discount_note})` : ""}`] : []),

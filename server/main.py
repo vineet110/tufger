@@ -4,6 +4,7 @@ import models  # noqa: F401  (registers tables)
 from db import Base, engine, migrate
 from routes_admin import auth_router, router as admin_router
 from routes_public import router as public_router
+from routes_teamsheet import router as teamsheet_router
 
 Base.metadata.create_all(engine)
 migrate()
@@ -14,6 +15,7 @@ api = FastAPI(title="Tufger API", version="0.1.0")
 api.include_router(auth_router)
 api.include_router(public_router)
 api.include_router(admin_router)
+api.include_router(teamsheet_router)
 
 
 @api.get("/health")

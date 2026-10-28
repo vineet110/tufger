@@ -35,6 +35,18 @@ _Last updated: 2026-10-28_
 - [x] Organiser can mark someone paid manually (cash, or paid outside the app)
 - [x] Live scoreboard on the public page (collected vs target, who is still pending)
 
+## 2b. Team Sheet (locked with TUFGER_KEY)
+
+- [x] Paste WhatsApp game posts (one or many, with or without chat timestamps) and get a card per game
+- [x] Reads times ("7 - 8 30 pm", "4 30-6pm (Today)", "Sunday 7am"), ground ("Ramp", "Match at prokick"), format ("7v 7"), status lines
+- [x] Reads players with numbering, guests ("+1", "Ganesh+1", "+1 (sovit frnd)", "+Ganesh") and "(100 paid)"
+- [x] "140 each" in the next message sets that game's price per player
+- [x] Edit date, start/end time, ground, sport, price per player, and any player's own amount (no need to match a ground total)
+- [x] Tick players as already paid; the organiser is ticked automatically
+- [x] Custom group message per game with {ground} {date} {time} {sport} {amount} {link}
+- [x] Create one or all games; share each in WhatsApp; drafts survive a page reload
+- [ ] Save a "regulars" list per ground to add players in one tap
+
 ## 3. Reminders (the "chasing" part)
 
 - [x] **Nudge Run**: go through unpaid players one by one; each tap opens WhatsApp with a personalised message, then moves to the next player

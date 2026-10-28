@@ -36,6 +36,7 @@ def _public(db: Session, booking: Booking) -> schemas.PublicBooking:
         total_amount=booking.total_amount,
         base_amount=booking.base_amount or booking.total_amount + booking.discount,
         discount=booking.discount,
+        notes=booking.notes,
         organizer_name=s.organizer_name,
         upi_id=s.upi_id,
         payee_name=s.payee_name or s.organizer_name,

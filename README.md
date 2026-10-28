@@ -47,7 +47,8 @@ One Vercel project runs both apps using [Vercel Services](https://vercel.com/doc
 1. On [vercel.com/new](https://vercel.com/new), import the GitHub repo. Leave the framework and
    root settings as they are, because `vercel.json` defines both services.
 2. Add **Environment Variables** (Production): `DATABASE_URL` (the Neon string), `ADMIN_PASSCODE`,
-   `SECRET_KEY` (a long random string).
+   `SECRET_KEY` (a long random string) and `TUFGER_KEY` (unlocks Team Sheet; leave it out to switch
+   Team Sheet off).
 3. **Settings → Functions → Function Region → Singapore (`sin1`)**, the same region as the Neon
    database. Otherwise every query crosses the Pacific.
 4. Deploy. Every `git push` to `main` redeploys.
@@ -61,7 +62,9 @@ Players then open `https://<your-project>.vercel.app/pay/<code>`.
 2. Share the **one pay link** in the group. Each player taps their name and pays over UPI (deep
    link or QR), then taps **I've paid** (optionally with the UTR).
 3. Claims land in the **Third umpire** queue on the booking page. Confirm or reject.
-4. **Nudge run** goes through the unpaid players one by one, opening WhatsApp with a personal
+4. **Team Sheet** (needs `TUFGER_KEY`): paste your WhatsApp game posts and each game becomes a card
+   with its players, time and price per player. Adjust anything, then create them all at once.
+5. **Nudge run** goes through the unpaid players one by one, opening WhatsApp with a personal
    reminder for each.
 
 ## Layout

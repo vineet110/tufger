@@ -155,6 +155,7 @@ class PublicBooking(BaseModel):
     total_amount: int
     base_amount: int
     discount: int
+    notes: str
     organizer_name: str
     upi_id: str
     payee_name: str
@@ -180,3 +181,28 @@ class DashboardOut(BaseModel):
     awaiting_confirmation: int
     players: int
     next_game: BookingSummary | None
+
+
+class SheetPlayerIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    phone: str | None = None
+    amount: int = Field(ge=0)
+    paid: bool = False
+    is_organizer: bool = False
+
+
+class SheetGameIn(BaseModel):
+    ground_name: str = Field(min_length=1, max_length=120)
+    sport: Sport = "other"
+    play_date: date
+    start_time: time
+    duration_min: int = Field(ge=15, le=24 * 60)
+    message: str = Field(default="", max_length=2000)
+    players: list[SheetPlayerIn] = Field(min_length=1)
+
+
+class SheetGameOut(BaseModel):
+    id: int
+    slug: str
+    total_amount: int
+    players: int

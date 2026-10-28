@@ -7,6 +7,7 @@ import type {
   PublicBooking,
   RosterRow,
   Settings,
+  Sport,
 } from "./types";
 
 const TOKEN_KEY = "tufger.token";
@@ -112,4 +113,22 @@ export const api = {
   publicBooking: (slug: string) => request<PublicBooking>(`/public/b/${slug}`),
   claim: (slug: string, entryId: number, utr: string) =>
     request<PublicBooking>(`/public/b/${slug}/claim`, json("POST", { entry_id: entryId, utr })),
+
+  // Team Sheet also needs the Tufger key on every call
+  sheetUnlock: (key: string) => request<{ ok: true }>("/teamsheet/unlock", { method: "POST", headers: { "X-Tufger-Key": key } }),
+  sheetCreateGame: (key: string, game: SheetGameIn) =>
+    request<{ id: number; slug: string; total_amount: number; players: number }>("/teamsheet/games", {
+      ...json("POST", game),
+      headers: { "X-Tufger-Key": key },
+    }),
 };
+
+export interface SheetGameIn {
+  ground_name: string;
+  sport: Sport;
+  play_date: string;
+  start_time: string;
+  duration_min: number;
+  message: string;
+  players: { name: string; phone: string | null; amount: number; paid: boolean; is_organizer: boolean }[];
+}

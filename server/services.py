@@ -19,10 +19,13 @@ def log(db: Session, booking: Booking, kind: str, message: str) -> None:
     db.add(Event(booking_id=booking.id, kind=kind, message=message))
 
 
-def resolve_player(db: Session, name: str, phone: str | None) -> Player:
-    """Find a squad member by phone (or by a unique name), else create one."""
+def resolve_player(db: Session, name: str, phone: str | None, keep_name: bool = False) -> Player:
+    """Find a squad member by phone (or by a unique name), else create one.
+
+    keep_name skips the name clean-up, for Team Sheet names like "Ganesh +1" or "Rishi (tt)".
+    """
     phone = normalize_phone(phone)
-    name = clean_name(name) or name.strip()
+    name = " ".join(name.split())[:120] if keep_name else (clean_name(name) or name.strip())
     if phone:
         player = db.scalar(select(Player).where(Player.phone == phone))
         if player:

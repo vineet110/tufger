@@ -10,6 +10,7 @@ import { Wordmark } from "./Wordmark";
 const NAV = [
   { href: "/", label: "Pavilion" },
   { href: "/bookings/new", label: "New booking" },
+  { href: "/teamsheet", label: "Team Sheet" },
   { href: "/squad", label: "Squad" },
   { href: "/grounds", label: "Grounds" },
   { href: "/settings", label: "Settings" },
