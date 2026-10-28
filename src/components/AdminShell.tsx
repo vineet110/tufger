@@ -46,7 +46,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col">
       <div className="border-b border-line bg-black/50 py-1.5">
-        <div className="ticker eyebrow text-[0.65rem] !text-led">
+        <div className="ticker eyebrow text-[0.72rem] !text-led">
           <div>
             {[...TICKER, ...TICKER].map((t, i) => (
               <span key={i} className="mx-6">
@@ -138,7 +138,7 @@ function Login({ onIn }: { onIn: () => void }) {
         </div>
         <form onSubmit={submit} className="board rise p-7 pt-9">
           <div className="eyebrow mb-1 text-center !text-led">Organiser entry</div>
-          <div className="led mb-6 text-center text-4xl">PAVILION</div>
+          <div className="led mb-6 text-center text-4xl dot">PAVILION</div>
           <label className="eyebrow label" htmlFor="code">
             Passcode
           </label>

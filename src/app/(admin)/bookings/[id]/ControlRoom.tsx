@@ -248,7 +248,7 @@ function Scorecard({ entries, onSelect, selectedId }: { entries: Entry[]; onSele
     <div className="slab overflow-hidden">
       <table className="w-full text-sm">
         <thead>
-          <tr className="eyebrow border-b border-line text-left !text-[0.6rem]">
+          <tr className="eyebrow border-b border-line text-left !text-[0.7rem]">
             <th className="px-4 py-3">#</th>
             <th className="py-3">Player</th>
             <th className="py-3 text-right">Share</th>
@@ -323,7 +323,7 @@ function PlayerPanel({
 
       <div className="mt-4 flex items-end gap-2">
         <div className="flex-1">
-          <label className="eyebrow label !text-[0.6rem]">Share</label>
+          <label className="eyebrow label !text-[0.7rem]">Share</label>
           <input type="number" className="field led !py-2 !text-xl" value={amount} onChange={(ev) => setAmount(ev.target.value)} />
         </div>
         <button
@@ -427,7 +427,7 @@ function MatchTools({
       <h2 className="display text-2xl">Match tools</h2>
       <div className="mt-3 flex items-end gap-2">
         <div className="flex-1">
-          <label className="eyebrow label !text-[0.6rem]">Ground amount</label>
+          <label className="eyebrow label !text-[0.7rem]">Ground amount</label>
           <input type="number" className="field led !py-2 !text-xl" value={total} onChange={(e) => setTotal(e.target.value)} />
         </div>
         <button

@@ -76,7 +76,7 @@ export default function GroundsPage() {
               </div>
               <div className="text-right">
                 <div className="led text-2xl">{rupees(g.price_per_hour)}</div>
-                <div className="eyebrow !text-[0.55rem]">per hour</div>
+                <div className="eyebrow !text-[0.68rem]">per hour</div>
               </div>
             </button>
           ),

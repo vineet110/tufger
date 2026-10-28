@@ -38,7 +38,7 @@ export function Scoreboard({ tally, compact = false }: { tally: Tally; compact?:
           <div className="h-full bg-led/70 transition-all duration-700" style={{ width: `${claimedPct}%` }} />
         </div>
       </div>
-      <div className="mt-3 flex justify-between text-[0.7rem] font-semibold tracking-widest text-chalk-dim uppercase">
+      <div className="mt-3 flex justify-between text-[0.75rem] font-semibold tracking-widest text-chalk-dim uppercase">
         <span>
           <span className="text-lime">{tally.paid_count}</span> paid
         </span>
@@ -56,8 +56,8 @@ export function Scoreboard({ tally, compact = false }: { tally: Tally; compact?:
 function Cell({ label, className, children }: { label: string; className: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="eyebrow mb-1 !text-[0.62rem]">{label}</div>
-      <div className={`led leading-none ${className}`}>
+      <div className="eyebrow mb-1 !text-[0.72rem]">{label}</div>
+      <div className={`led dot leading-none ${className}`}>
         <span className="mr-0.5 align-top text-[0.45em] opacity-70">₹</span>
         {children}
       </div>

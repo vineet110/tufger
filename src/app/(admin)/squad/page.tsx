@@ -42,8 +42,8 @@ export default function SquadPage() {
           <p className="mt-2 text-chalk-dim">Everyone who&apos;s played, what they&apos;ve paid, and how fast they usually pay.</p>
         </div>
         <div className="board px-5 pt-6 pb-4 text-right">
-          <div className="eyebrow !text-[0.6rem]">Outstanding · {owers} players</div>
-          <div className="led text-4xl">{rupees(owing)}</div>
+          <div className="eyebrow !text-[0.7rem]">Outstanding · {owers} players</div>
+          <div className="led text-4xl dot">{rupees(owing)}</div>
         </div>
       </div>
 
@@ -94,7 +94,7 @@ export default function SquadPage() {
                   <Mini k="Owes" v={rupees(p.outstanding)} warn={p.outstanding > 0} />
                 </div>
                 {p.avg_pay_hours != null && (
-                  <div className="mt-3 text-center text-[0.7rem] text-muted">
+                  <div className="mt-3 text-center text-[0.75rem] text-muted">
                     Usually pays in {p.avg_pay_hours < 1 ? "under an hour" : `~${Math.round(p.avg_pay_hours)}h`}
                   </div>
                 )}
@@ -110,7 +110,7 @@ export default function SquadPage() {
 function Mini({ k, v, lime, warn }: { k: string; v: string; lime?: boolean; warn?: boolean }) {
   return (
     <div className="rounded-lg bg-black/40 py-2">
-      <div className="eyebrow !text-[0.55rem]">{k}</div>
+      <div className="eyebrow !text-[0.68rem]">{k}</div>
       <div className={`led text-lg ${lime ? "led-lime" : ""} ${warn ? "" : !lime ? "!text-chalk [text-shadow:none]" : ""}`}>{v}</div>
     </div>
   );

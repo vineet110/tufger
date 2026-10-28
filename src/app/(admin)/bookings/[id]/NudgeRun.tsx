@@ -93,7 +93,7 @@ export function NudgeRun({
                   {e.nudges > 0 && ` · nudged ${e.nudges}× before`}
                 </div>
               </div>
-              <div className="led text-3xl">{rupees(e.amount)}</div>
+              <div className="led text-3xl dot">{rupees(e.amount)}</div>
             </div>
 
             <textarea

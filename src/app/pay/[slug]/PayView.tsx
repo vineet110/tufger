@@ -41,7 +41,7 @@ export function PayView({ params }: { params: Promise<{ slug: string }> }) {
     return (
       <div className="grid min-h-dvh place-items-center p-6 text-center">
         <div>
-          <div className="led led-red text-4xl">NO BALL</div>
+          <div className="led led-red text-4xl dot">NO BALL</div>
           <p className="mt-3 text-chalk-dim">{error}</p>
         </div>
       </div>
@@ -127,7 +127,7 @@ export function PayView({ params }: { params: Promise<{ slug: string }> }) {
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-semibold">{e.name}</span>
-                  <span className="block text-[0.68rem] text-muted">
+                  <span className="block text-[0.75rem] text-muted">
                     {e.status === "paid" ? "paid" : e.status === "claimed" ? "under review" : rupees(e.amount)}
                   </span>
                 </span>
@@ -150,7 +150,7 @@ export function PayView({ params }: { params: Promise<{ slug: string }> }) {
 function TicketCell({ k, v }: { k: string; v: string }) {
   return (
     <div className="px-2 py-3">
-      <div className="eyebrow !text-[0.55rem]">{k}</div>
+      <div className="eyebrow !text-[0.68rem]">{k}</div>
       <div className="mt-0.5 text-sm font-semibold">{v}</div>
     </div>
   );
@@ -189,7 +189,7 @@ function PayPanel({
     return (
       <section id="pay" className="board rise mt-8 overflow-hidden p-8 pt-10 text-center">
         <Sparks />
-        <div className="led led-lime text-5xl">CLEARED</div>
+        <div className="led led-lime text-5xl dot">CLEARED</div>
         <div className="display mt-3 text-3xl">You&apos;re good to play, {first} ✅</div>
         <p className="mt-2 text-sm text-chalk-dim">
           {rupees(entry.amount)} received. See you at {fmtTime(b.start_time)}.
@@ -202,7 +202,7 @@ function PayPanel({
     return (
       <section id="pay" className="board rise mt-8 p-8 pt-10 text-center">
         <div className="eyebrow !text-led">Decision pending</div>
-        <div className="led mt-2 text-4xl">
+        <div className="led mt-2 text-4xl dot">
           THIRD UMPIRE<span className="blink">…</span>
         </div>
         <p className="mt-3 text-sm text-chalk-dim">
@@ -216,7 +216,7 @@ function PayPanel({
     <section id="pay" className="board rise mt-8 scroll-mt-4 p-6 pt-8">
       <div className="text-center">
         <div className="eyebrow !text-led">{first}&apos;s share</div>
-        <div className="led mt-1 text-7xl leading-none">
+        <div className="led mt-1 text-7xl leading-none dot">
           <span className="align-top text-3xl opacity-70">₹</span>
           {entry.amount}
         </div>

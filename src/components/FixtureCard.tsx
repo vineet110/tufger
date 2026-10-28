@@ -16,9 +16,9 @@ export function FixtureCard({ b, index = 0 }: { b: BookingSummary; index?: numbe
       style={{ animationDelay: `${index * 50}ms` }}
     >
       <div className="flex w-20 shrink-0 flex-col items-center justify-center border-r border-dashed border-line bg-black/40 py-4 sm:w-24">
-        <div className="eyebrow !text-[0.6rem]">{fmtDate(b.play_date, { month: "short" })}</div>
-        <div className="led text-4xl leading-none">{fmtDate(b.play_date, { day: "2-digit" })}</div>
-        <div className="eyebrow mt-1 !text-[0.6rem]">{fmtDate(b.play_date, { weekday: "short" })}</div>
+        <div className="eyebrow !text-[0.7rem]">{fmtDate(b.play_date, { month: "short" })}</div>
+        <div className="led text-4xl leading-none dot">{fmtDate(b.play_date, { day: "2-digit" })}</div>
+        <div className="eyebrow mt-1 !text-[0.7rem]">{fmtDate(b.play_date, { weekday: "short" })}</div>
       </div>
 
       {/* ticket notches */}
@@ -28,7 +28,7 @@ export function FixtureCard({ b, index = 0 }: { b: BookingSummary; index?: numbe
       <div className="min-w-0 flex-1 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="eyebrow flex items-center gap-2 !text-[0.62rem]">
+            <div className="eyebrow flex items-center gap-2 !text-[0.72rem]">
               <span>{sportEmoji[b.sport]}</span>
               <span className={when === "Today" || when === "Tomorrow" ? "!text-led" : ""}>{when}</span>
               <span>·</span>
@@ -41,7 +41,7 @@ export function FixtureCard({ b, index = 0 }: { b: BookingSummary; index?: numbe
           </div>
           <div className="shrink-0 text-right">
             <div className={`led text-2xl ${done ? "led-lime" : ""}`}>{pct}%</div>
-            <div className="text-[0.68rem] text-muted">
+            <div className="text-[0.75rem] text-muted">
               {rupees(t.collected)} / {rupees(t.target)}
             </div>
           </div>

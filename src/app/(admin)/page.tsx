@@ -63,19 +63,19 @@ export default function PavilionPage() {
             </div>
             <div className="mt-5 grid grid-cols-2 gap-4">
               <div>
-                <div className="eyebrow !text-[0.6rem]">Collected</div>
-                <div className="led led-lime text-3xl">{rupees(next.tally.collected)}</div>
+                <div className="eyebrow !text-[0.7rem]">Collected</div>
+                <div className="led led-lime text-3xl dot">{rupees(next.tally.collected)}</div>
               </div>
               <div className="text-right">
-                <div className="eyebrow !text-[0.6rem]">Still out</div>
-                <div className="led text-3xl">{rupees(Math.max(next.tally.target - next.tally.collected, 0))}</div>
+                <div className="eyebrow !text-[0.7rem]">Still out</div>
+                <div className="led text-3xl dot">{rupees(Math.max(next.tally.target - next.tally.collected, 0))}</div>
               </div>
             </div>
           </Link>
         ) : (
           <div className="board rise p-6 pt-8 text-center">
             <div className="eyebrow !text-led">Next match</div>
-            <div className="led mt-3 text-3xl opacity-60">NO FIXTURE</div>
+            <div className="led mt-3 text-3xl opacity-60 dot">NO FIXTURE</div>
             <p className="mt-2 text-sm text-muted">Book a turf and it shows up here.</p>
           </div>
         )}
@@ -141,8 +141,8 @@ export default function PavilionPage() {
 function Stat({ label, value, tone }: { label: string; value: string; tone: "led" | "lime" | "dim" }) {
   return (
     <div className="board px-4 pt-6 pb-4">
-      <div className="eyebrow !text-[0.6rem]">{label}</div>
-      <div className={`led mt-1 text-3xl sm:text-4xl ${tone === "lime" ? "led-lime" : tone === "dim" ? "!text-chalk !opacity-80 [text-shadow:none]" : ""}`}>
+      <div className="eyebrow !text-[0.7rem]">{label}</div>
+      <div className={`led dot mt-1 text-3xl sm:text-4xl ${tone === "lime" ? "led-lime" : tone === "dim" ? "!text-chalk !opacity-80 [text-shadow:none]" : ""}`}>
         {value}
       </div>
     </div>

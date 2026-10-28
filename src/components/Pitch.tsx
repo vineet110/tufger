@@ -54,7 +54,7 @@ export function Pitch({
       </svg>
       {sport !== "football" && (
         <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
-          <div className="eyebrow !text-[0.55rem] opacity-70">Pitch</div>
+          <div className="eyebrow !text-[0.68rem] opacity-70">Pitch</div>
         </div>
       )}
       {tokens.map((t, i) => (

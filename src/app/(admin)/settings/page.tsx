@@ -89,7 +89,7 @@ export default function SettingsPage() {
             onChange={(e) => setS({ ...s, reminder_template: e.target.value })}
           />
           <div className="rounded-2xl bg-[#0b141a] p-4">
-            <div className="eyebrow mb-2 !text-[0.55rem]">WhatsApp preview</div>
+            <div className="eyebrow mb-2 !text-[0.68rem]">WhatsApp preview</div>
             <div className="max-w-[90%] rounded-lg rounded-tl-none bg-[#005c4b] px-3 py-2 text-sm whitespace-pre-wrap text-[#e9edef] shadow">
               {preview}
             </div>

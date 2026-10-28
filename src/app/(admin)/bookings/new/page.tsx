@@ -208,7 +208,7 @@ export default function NewBookingPage() {
                       key={d.label}
                       type="button"
                       onClick={() => setDate(d.iso)}
-                      className={`chip !text-[0.62rem] ${date === d.iso ? "chip-paid" : "chip-pending"}`}
+                      className={`chip !text-[0.72rem] ${date === d.iso ? "chip-paid" : "chip-pending"}`}
                     >
                       {d.label}
                     </button>
@@ -224,7 +224,7 @@ export default function NewBookingPage() {
                       key={t}
                       type="button"
                       onClick={() => setStart(t)}
-                      className={`chip !text-[0.62rem] ${start === t ? "chip-paid" : "chip-pending"}`}
+                      className={`chip !text-[0.72rem] ${start === t ? "chip-paid" : "chip-pending"}`}
                     >
                       {fmtTime(t)}
                     </button>
@@ -276,7 +276,7 @@ export default function NewBookingPage() {
                 >
                   <span className="text-2xl">📄</span>
                   <span className="display text-lg leading-tight">{uploading ? "Reading…" : "Upload Excel"}</span>
-                  <span className="text-[0.65rem] text-muted">.xlsx or .csv</span>
+                  <span className="text-[0.72rem] text-muted">.xlsx or .csv</span>
                 </button>
                 <input
                   ref={fileRef}
@@ -286,8 +286,8 @@ export default function NewBookingPage() {
                   onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])}
                 />
                 <div className="board flex flex-1 flex-col items-center justify-center p-3 pt-5">
-                  <div className="eyebrow !text-[0.55rem]">Players</div>
-                  <div className="led text-5xl leading-none">{String(headcount).padStart(2, "0")}</div>
+                  <div className="eyebrow !text-[0.68rem]">Players</div>
+                  <div className="led text-5xl leading-none dot">{String(headcount).padStart(2, "0")}</div>
                 </div>
               </div>
             </div>
@@ -306,7 +306,7 @@ export default function NewBookingPage() {
                       <span className="w-5 text-right font-mono text-xs text-muted">{i + 1}</span>
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-semibold">{r.name}</div>
-                        <div className="font-mono text-[0.68rem] text-muted">{r.phone ? `+91 ${r.phone.slice(0, 5)} ${r.phone.slice(5)}` : "no number"}</div>
+                        <div className="font-mono text-[0.75rem] text-muted">{r.phone ? `+91 ${r.phone.slice(0, 5)} ${r.phone.slice(5)}` : "no number"}</div>
                       </div>
                       <ShareInput
                         value={shares[i + (includeMe ? 1 : 0)]}
@@ -354,7 +354,7 @@ export default function NewBookingPage() {
               <div>
                 <label className="eyebrow label flex items-center gap-2">
                   Total ground amount
-                  {!amountTouched && ground && <span className="chip chip-paid !text-[0.55rem]">auto</span>}
+                  {!amountTouched && ground && <span className="chip chip-paid !text-[0.68rem]">auto</span>}
                 </label>
                 <div className="relative">
                   <span className="led absolute top-1/2 left-4 -translate-y-1/2 text-2xl">₹</span>
@@ -404,7 +404,7 @@ export default function NewBookingPage() {
         <aside className="lg:sticky lg:top-24 lg:self-start">
           <div className="board p-6 pt-8">
             <div className="eyebrow text-center !text-led">Per head</div>
-            <div className="led mt-1 text-center text-7xl leading-none">
+            <div className="led mt-1 text-center text-7xl leading-none dot">
               <span className="align-top text-3xl opacity-70">₹</span>
               {headcount ? flexShare : 0}
             </div>
