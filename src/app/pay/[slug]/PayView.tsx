@@ -1,9 +1,9 @@
 "use client";
 
 import { use, useCallback, useEffect, useState } from "react";
-import { Qr } from "@/components/Qr";
+import { ScanToPay } from "@/components/ScanToPay";
 import { Scoreboard } from "@/components/Scoreboard";
-import { copyText, Toaster, toast } from "@/components/Toast";
+import { Toaster, toast } from "@/components/Toast";
 import { Wordmark } from "@/components/Wordmark";
 import { api } from "@/lib/api";
 import { useStoredValue } from "@/lib/client";
@@ -174,7 +174,6 @@ function PayPanel({
 }) {
   const [utr, setUtr] = useState("");
   const [busy, setBusy] = useState(false);
-  const [showQr, setShowQr] = useState(false);
   const [tapped, setTapped] = useState(false);
   const first = entry.name.split(" ")[0];
   const note = `${b.ground_name} ${fmtDate(b.play_date, { day: "numeric", month: "short" })} - ${first}`;
@@ -240,21 +239,13 @@ function PayPanel({
           </a>
           <div className="mt-2 text-center text-xs text-muted">Opens GPay · PhonePe · Paytm · BHIM with the amount filled in</div>
 
-          <div className="mt-4 flex items-center justify-center gap-4 text-xs">
-            <button className="text-chalk-dim underline" onClick={() => setShowQr((s) => !s)}>
-              {showQr ? "Hide QR" : "Show QR code"}
-            </button>
-            <button className="font-mono text-chalk-dim underline" onClick={() => copyText(b.upi_id, "UPI ID copied")}>
-              {b.upi_id}
-            </button>
-          </div>
-          {showQr && (
-            <div className="rise mt-4 flex justify-center">
-              <div className="rounded-xl bg-chalk p-3">
-                <Qr value={link} size={220} />
-              </div>
-            </div>
-          )}
+          <ScanToPay
+            link={link}
+            upiId={b.upi_id}
+            title={`${first} · ${b.ground_name} · pay ${b.payee_name}`}
+            amountLine={rupees(entry.amount)}
+            filename={`tufger-qr-${first.toLowerCase()}.png`}
+          />
 
           <div className="chalk-rule my-6" />
 

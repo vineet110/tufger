@@ -5,18 +5,25 @@ export function payLink(slug: string): string {
   return `${window.location.origin}/pay/${slug}`;
 }
 
-export function upiLink(opts: { upi: string; payee: string; amount: number; note: string }): string {
-  const params = new URLSearchParams({
-    pa: opts.upi,
-    pn: opts.payee,
-    am: opts.amount.toFixed(2),
-    cu: "INR",
-    tn: opts.note.slice(0, 60),
-  });
+/** UPI deep link / QR payload. Leave out the amount to let the payer type it. */
+export function upiLink(opts: { upi: string; payee: string; amount?: number; note: string }): string {
+  const params = new URLSearchParams({ pa: opts.upi, pn: opts.payee });
+  if (opts.amount) params.set("am", opts.amount.toFixed(2));
+  params.set("cu", "INR");
+  params.set("tn", opts.note.slice(0, 60));
   return `upi://pay?${params.toString().replace(/\+/g, "%20")}`;
 }
 
-export function fillTemplate(template: string, booking: BookingDetail, entry: Entry): string {
+/** Put a "UPI: …" line just above the pay link when a template doesn't place {upi} itself. */
+function withUpiLine(template: string, upi: string): string {
+  if (!upi || template.includes("{upi}")) return template;
+  const lines = template.split("\n");
+  const at = lines.findIndex((l) => l.includes("{link}"));
+  lines.splice(at === -1 ? lines.length : at, 0, "💳 UPI: {upi}");
+  return lines.join("\n");
+}
+
+export function fillTemplate(template: string, booking: BookingDetail, entry: Entry, upi = ""): string {
   const vars: Record<string, string> = {
     name: entry.name.split(" ")[0],
     fullname: entry.name,
@@ -25,8 +32,9 @@ export function fillTemplate(template: string, booking: BookingDetail, entry: En
     date: fmtDate(booking.play_date),
     time: fmtTime(booking.start_time),
     link: payLink(booking.slug),
+    upi,
   };
-  return template.replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m);
+  return withUpiLine(template, upi).replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m);
 }
 
 export function whatsappLink(phone: string | null, text: string): string {
@@ -41,18 +49,18 @@ export function commonAmount(amounts: number[]): number {
   return [...counts.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? 0;
 }
 
-/** Fill a custom game message: {link} → pay link, {amount} → usual share. */
-export function fillNote(note: string, link: string, amount: number): string {
-  return note.replaceAll("{link}", link).replaceAll("{amount}", String(amount));
+/** Fill a custom game message: {link} → pay link, {amount} → usual share, {upi} → UPI ID. */
+export function fillNote(note: string, link: string, amount: number, upi = ""): string {
+  return withUpiLine(note, upi).replaceAll("{link}", link).replaceAll("{amount}", String(amount)).replaceAll("{upi}", upi);
 }
 
 /** Status board to paste into the WhatsApp group. */
-export function groupMessage(b: BookingDetail): string {
+export function groupMessage(b: BookingDetail, upi = ""): string {
   const paid = b.entries.filter((e) => e.status === "paid");
   const claimed = b.entries.filter((e) => e.status === "claimed");
   const pending = b.entries.filter((e) => e.status === "pending");
   const note = b.notes.trim()
-    ? [fillNote(b.notes.trim(), payLink(b.slug), commonAmount(b.entries.filter((e) => !e.is_organizer).map((e) => e.amount))), ""]
+    ? [fillNote(b.notes.trim(), payLink(b.slug), commonAmount(b.entries.filter((e) => !e.is_organizer).map((e) => e.amount)), upi), ""]
     : [];
   const lines = [
     ...note,
@@ -77,7 +85,10 @@ export function groupMessage(b: BookingDetail): string {
     lines.push(paid.map((e) => e.name).join(", "));
     lines.push("");
   }
-  lines.push(pending.length ? `👉 Pay your share in 10 sec: ${payLink(b.slug)}` : "🏆 All clear! See you on the turf.");
+  if (pending.length) {
+    if (upi && !note.length) lines.push(`💳 UPI: ${upi}`);
+    lines.push(`👉 Scan the QR or pay in 10 sec: ${payLink(b.slug)}`);
+  } else lines.push("🏆 All clear! See you on the turf.");
   return lines.join("\n");
 }
 
@@ -86,7 +97,7 @@ export function billLink(slug: string): string {
 }
 
 /** A player's full bill, ready to send in their personal WhatsApp chat. */
-export function billMessage(bill: Bill, organizer: string): string {
+export function billMessage(bill: Bill, organizer: string, upi = ""): string {
   const lines = [`Hi ${bill.name.split(" ")[0]} 👋`, `Your turf dues${organizer ? ` with ${organizer}` : ""}:`, ""];
   bill.lines.forEach((l) => {
     const when = fmtDate(l.play_date, { weekday: "short", day: "numeric", month: "short" });
@@ -94,6 +105,8 @@ export function billMessage(bill: Bill, organizer: string): string {
   });
   if (bill.extra_due > 0) lines.push(`• Other dues — ${rupees(bill.extra_due)}`);
   if (bill.extra_due < 0) lines.push(`• Already paid in advance — −${rupees(-bill.extra_due)}`);
-  lines.push("", `Total: *${rupees(bill.due)}*`, `Pay in one go 👉 ${billLink(bill.pay_slug)}`);
+  lines.push("", `Total: *${rupees(bill.due)}*`);
+  if (upi) lines.push(`💳 UPI: ${upi}`);
+  lines.push(`👉 Scan the QR or pay in one tap: ${billLink(bill.pay_slug)}`);
   return lines.join("\n");
 }

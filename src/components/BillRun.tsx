@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { initials, rupees } from "@/lib/format";
-import { billMessage, whatsappLink } from "@/lib/messages";
+import { billMessage, upiLink, whatsappLink } from "@/lib/messages";
+import { copyQrCard, qrCard } from "@/lib/qr";
 import type { Bill } from "@/lib/types";
 import { copyText, toast } from "./Toast";
 
@@ -11,7 +12,7 @@ import { copyText, toast } from "./Toast";
  * Send each player their total bill in their own WhatsApp chat, one tap per player.
  * Uses WhatsApp's free click-to-chat links: the chat opens with the message typed in.
  */
-export function BillRun({ bills, organizer, onClose }: { bills: Bill[]; organizer: string; onClose: () => void }) {
+export function BillRun({ bills, organizer, upi, onClose }: { bills: Bill[]; organizer: string; upi: string; onClose: () => void }) {
   const [queue, setQueue] = useState(bills);
   const [i, setI] = useState(0);
   const [sent, setSent] = useState(0);
@@ -21,7 +22,19 @@ export function BillRun({ bills, organizer, onClose }: { bills: Bill[]; organize
 
   const b = queue[i];
   const done = i >= queue.length;
-  const message = b ? (draft ?? billMessage(b, organizer)) : "";
+  const message = b ? (draft ?? billMessage(b, organizer, upi)) : "";
+
+  async function copyQr() {
+    const first = b.name.split(" ")[0];
+    const blob = await qrCard({
+      upi: upiLink({ upi, payee: organizer, amount: b.due, note: `Turf dues - ${first}` }),
+      title: `${first}'s turf dues · pay ${organizer}`,
+      amountLine: rupees(b.due),
+      upiId: upi,
+    });
+    const how = await copyQrCard(blob, `tufger-qr-${first.toLowerCase()}.png`);
+    toast(how === "copied" ? "QR copied. Paste it in their chat" : "QR saved. Attach it in their chat");
+  }
 
   const next = () => {
     setDraft(null);
@@ -104,6 +117,7 @@ export function BillRun({ bills, organizer, onClose }: { bills: Bill[]; organize
             )}
 
             <textarea className="field mt-4 min-h-[170px] text-sm leading-relaxed" value={message} onChange={(e) => setDraft(e.target.value)} />
+            <p className="mt-1 text-xs text-muted">The link&apos;s WhatsApp preview shows the payment QR. Want the QR as its own image too? Copy it and paste it in the chat.</p>
 
             <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
               {b.phone ? (
@@ -135,6 +149,11 @@ export function BillRun({ bills, organizer, onClose }: { bills: Bill[]; organize
                 Skip
               </button>
             </div>
+            {upi && (
+              <button className="btn btn-sm mt-2 w-full" onClick={copyQr}>
+                ▦ Copy QR image ({rupees(b.due)})
+              </button>
+            )}
           </div>
         )}
       </div>

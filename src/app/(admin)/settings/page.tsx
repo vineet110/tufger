@@ -5,7 +5,7 @@ import { toast } from "@/components/Toast";
 import { api, setToken } from "@/lib/api";
 import type { Settings } from "@/lib/types";
 
-const VARS = ["{name}", "{fullname}", "{amount}", "{ground}", "{date}", "{time}", "{link}"];
+const VARS = ["{name}", "{fullname}", "{amount}", "{ground}", "{date}", "{time}", "{upi}", "{link}"];
 
 export default function SettingsPage() {
   const [s, setS] = useState<Settings | null>(null);
@@ -24,6 +24,7 @@ export default function SettingsPage() {
     .replaceAll("{ground}", "Smash Arena")
     .replaceAll("{date}", "Sun, 2 Nov")
     .replaceAll("{time}", "7:00 AM")
+    .replaceAll("{upi}", s.upi_id || "you@upi")
     .replaceAll("{link}", "https://…/pay/abc123");
 
   async function save() {

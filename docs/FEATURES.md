@@ -67,6 +67,9 @@ _Last updated: 2026-10-28_
 - [x] **Send bills**: one tap per player opens their own WhatsApp chat with their total bill (free click-to-chat links)
 - [x] Personal bill link per player: all unpaid games, one UPI payment, "I've paid everything"
 - [x] Excel backup of all players and full history
+- [x] UPI QR shown on every pay/bill page, with **Save QR** for "scan from gallery"
+- [x] WhatsApp messages carry the UPI ID and the link; the link's preview image is the payment QR
+- [x] **Copy QR image** in Send bills and Team Sheet to paste the QR into a chat
 - [x] Pay-speed rating per player
 - [ ] Fully automatic WhatsApp sending (needs the paid WhatsApp Business API)
 - [ ] Player groups (e.g. "Sunday Cricket Gang") for one-tap roster selection

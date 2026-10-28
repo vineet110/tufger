@@ -19,11 +19,12 @@ export function PlayerKhata({ params }: { params: Promise<{ id: string }> }) {
   const [entry, setEntry] = useState<"got" | "due" | null>(null);
   const [bill, setBill] = useState<Bill | null>(null);
   const [organizer, setOrganizer] = useState("");
+  const [upi, setUpi] = useState("");
 
   const load = useCallback(() => api.khataPlayer(id).then(setP, (e) => setError(e.message)), [id]);
   useEffect(() => {
     load();
-    api.settings().then((s) => setOrganizer(s.organizer_name), () => {});
+    api.settings().then((s) => (setOrganizer(s.organizer_name), setUpi(s.upi_id)), () => {});
   }, [load]);
 
   const act = async (work: Promise<KhataDetail>, ok: string) => {
@@ -160,7 +161,7 @@ export function PlayerKhata({ params }: { params: Promise<{ id: string }> }) {
         </aside>
       </div>
 
-      {bill && <BillRun bills={[bill]} organizer={organizer} onClose={() => (setBill(null), load())} />}
+      {bill && <BillRun bills={[bill]} organizer={organizer} upi={upi} onClose={() => (setBill(null), load())} />}
     </div>
   );
 }

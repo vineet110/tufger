@@ -54,6 +54,7 @@ export function ControlRoom({ params }: { params: Promise<{ id: string }> }) {
   const pending = b.entries.filter((e) => e.status === "pending");
   const sel = b.entries.find((e) => e.id === selected) ?? null;
   const template = settings?.reminder_template ?? "Hi {name}, your share is ₹{amount}: {link}";
+  const upi = settings?.upi_id ?? "";
 
   return (
     <div className="space-y-6">
@@ -97,7 +98,7 @@ export function ControlRoom({ params }: { params: Promise<{ id: string }> }) {
           <button className="btn" onClick={() => copyText(link, "Pay link copied")}>
             🔗 Copy link
           </button>
-          <a className="btn btn-wa" href={whatsappLink(null, groupMessage(b))} target="_blank" rel="noreferrer">
+          <a className="btn btn-wa" href={whatsappLink(null, groupMessage(b, upi))} target="_blank" rel="noreferrer">
             Post to group
           </a>
           <button className="btn btn-led" disabled={!pending.length} onClick={() => setNudging(true)}>
@@ -117,7 +118,7 @@ export function ControlRoom({ params }: { params: Promise<{ id: string }> }) {
             <button className="btn btn-sm" onClick={() => copyText(link, "Pay link copied")}>
               Copy
             </button>
-            <a className="btn btn-sm btn-wa" href={whatsappLink(null, groupMessage(b))} target="_blank" rel="noreferrer">
+            <a className="btn btn-sm btn-wa" href={whatsappLink(null, groupMessage(b, upi))} target="_blank" rel="noreferrer">
               Share on WhatsApp
             </a>
             <button className="btn btn-sm btn-ghost" onClick={() => router.replace(`/bookings/${b.id}`)}>
@@ -192,6 +193,7 @@ export function ControlRoom({ params }: { params: Promise<{ id: string }> }) {
               b={b}
               e={sel}
               template={template}
+              upi={upi}
               onClose={() => setSelected(null)}
               act={act}
             />
@@ -199,7 +201,7 @@ export function ControlRoom({ params }: { params: Promise<{ id: string }> }) {
             <section className="slab p-5 text-center text-sm text-muted">Tap a jersey to manage that player.</section>
           )}
 
-          <MatchTools b={b} act={act} onDeleted={() => router.push("/")} />
+          <MatchTools b={b} upi={upi} act={act} onDeleted={() => router.push("/")} />
 
           <section className="slab p-5">
             <h2 className="display text-2xl">Commentary</h2>
@@ -226,6 +228,7 @@ export function ControlRoom({ params }: { params: Promise<{ id: string }> }) {
         <NudgeRun
           b={b}
           template={template}
+          upi={upi}
           onNudged={(eid) => api.nudge(b.id, eid).then(setB).catch(() => {})}
           onMarkPaid={(eid) => act(api.setStatus(b.id, eid, "paid"))}
           onClose={() => {
@@ -300,19 +303,21 @@ export function StatusChip({ s }: { s: Entry["status"] }) {
 
 function PlayerPanel({
   b,
+  upi,
   e,
   template,
   onClose,
   act,
 }: {
   b: BookingDetail;
+  upi: string;
   e: Entry;
   template: string;
   onClose: () => void;
   act: (p: Promise<BookingDetail>, ok?: string) => Promise<void>;
 }) {
   const [amount, setAmount] = useState(String(e.amount));
-  const msg = fillTemplate(template, b, e);
+  const msg = fillTemplate(template, b, e, upi);
 
   return (
     <section className="slab rise border-sky/40 p-5">
@@ -435,10 +440,12 @@ function AddLate({ onAdd }: { onAdd: (rows: { name: string; phone: string | null
 
 function MatchTools({
   b,
+  upi,
   act,
   onDeleted,
 }: {
   b: BookingDetail;
+  upi: string;
   act: (p: Promise<BookingDetail>, ok?: string) => Promise<void>;
   onDeleted: () => void;
 }) {
@@ -463,7 +470,7 @@ function MatchTools({
       </div>
       <p className="mt-1 text-xs text-muted">Re-split keeps what&apos;s already paid and divides the rest equally among players who haven&apos;t paid.</p>
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <button className="btn btn-sm" onClick={() => copyText(groupMessage(b), "Group message copied")}>
+        <button className="btn btn-sm" onClick={() => copyText(groupMessage(b, upi), "Group message copied")}>
           Copy status msg
         </button>
         <button className="btn btn-sm" onClick={() => act(api.patchBooking(b.id, { archived: !b.archived }), b.archived ? "Restored" : "Archived")}>

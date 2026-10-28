@@ -17,12 +17,13 @@ export default function KhataPage() {
   const [adding, setAdding] = useState(false);
   const [bills, setBills] = useState<Bill[] | null>(null);
   const [organizer, setOrganizer] = useState("");
+  const [upi, setUpi] = useState("");
   const [busy, setBusy] = useState("");
 
   const load = () => api.khata().then(setRows, (e) => toast(e.message, "err"));
   useEffect(() => {
     load();
-    api.settings().then((s) => setOrganizer(s.organizer_name), () => {});
+    api.settings().then((s) => (setOrganizer(s.organizer_name), setUpi(s.upi_id)), () => {});
   }, []);
 
   const visible = useMemo(() => {
@@ -187,6 +188,7 @@ export default function KhataPage() {
         <BillRun
           bills={bills}
           organizer={organizer}
+          upi={upi}
           onClose={() => {
             setBills(null);
             load();

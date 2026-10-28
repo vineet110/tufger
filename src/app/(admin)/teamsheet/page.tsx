@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { copyText, toast } from "@/components/Toast";
 import { ApiError, api } from "@/lib/api";
 import { fmtDate, fmtDuration, fmtTime, rupees, sportEmoji } from "@/lib/format";
-import { fillNote, payLink, whatsappLink } from "@/lib/messages";
+import { fillNote, payLink, upiLink, whatsappLink } from "@/lib/messages";
+import { copyQrCard, qrCard } from "@/lib/qr";
 import { parseTeamSheet } from "@/lib/teamsheet";
 import type { Ground, Sport } from "@/lib/types";
 
@@ -142,12 +143,13 @@ function Sheet({ sheetKey, onLocked }: { sheetKey: string; onLocked: () => void 
   const [paste, setPaste] = useState("");
   const [grounds, setGrounds] = useState<Ground[]>([]);
   const [organizer, setOrganizer] = useState("");
+  const [upi, setUpi] = useState("");
   const [creatingAll, setCreatingAll] = useState(false);
   const [phoneBook, setPhoneBook] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     api.grounds().then(setGrounds, () => {});
-    api.settings().then((s) => setOrganizer(s.organizer_name), () => {});
+    api.settings().then((s) => (setOrganizer(s.organizer_name), setUpi(s.upi_id)), () => {});
     // name → WhatsApp number from the khata, so known players come pre-filled
     api.khata().then((rows) => {
       const seen = new Map<string, string | null>();
@@ -307,6 +309,8 @@ function Sheet({ sheetKey, onLocked }: { sheetKey: string; onLocked: () => void 
             d={d}
             index={i + 1}
             grounds={grounds}
+            upi={upi}
+            organizer={organizer}
             onChange={(patch) => update(d.id, patch)}
             onRemove={() => setDrafts((list) => list.filter((x) => x.id !== d.id))}
             onCreate={() => create(d).then((ok) => ok && toast("Game created"))}
@@ -340,6 +344,8 @@ function GameCard({
   d,
   index,
   grounds,
+  upi,
+  organizer,
   onChange,
   onRemove,
   onCreate,
@@ -347,6 +353,8 @@ function GameCard({
   d: Draft;
   index: number;
   grounds: Ground[];
+  upi: string;
+  organizer: string;
   onChange: (patch: Partial<Draft> | ((d: Draft) => Partial<Draft>)) => void;
   onRemove: () => void;
   onCreate: () => void;
@@ -359,7 +367,7 @@ function GameCard({
   const setPlayer = (pid: string, patch: Partial<DraftPlayer>) =>
     onChange((g) => ({ players: g.players.map((p) => (p.id === pid ? { ...p, ...patch } : p)) }));
 
-  const shareText = d.slug ? fillNote(fillGameInfo(d.message, d), payLink(d.slug), d.perHead ?? 0) : "";
+  const shareText = d.slug ? fillNote(fillGameInfo(d.message, d), payLink(d.slug), d.perHead ?? 0, upi) : "";
 
   return (
     <section className={`slab rise overflow-hidden ${d.state === "done" ? "border-lime/50" : ""}`}>
@@ -402,6 +410,23 @@ function GameCard({
             <button className="btn btn-sm" onClick={() => copyText(shareText, "Message copied")}>
               Copy message
             </button>
+            {upi && d.perHead != null && (
+              <button
+                className="btn btn-sm"
+                onClick={async () => {
+                  const blob = await qrCard({
+                    upi: upiLink({ upi, payee: organizer, amount: d.perHead!, note: `${d.ground} ${d.date}` }),
+                    title: `${d.ground} · ${fmtDate(d.date)} · pay ${organizer}`,
+                    amountLine: `${rupees(d.perHead!)} each`,
+                    upiId: upi,
+                  });
+                  const how = await copyQrCard(blob, `tufger-qr-${d.ground.toLowerCase().replace(/\W+/g, "-")}.png`);
+                  toast(how === "copied" ? "QR copied. Paste it in the group" : "QR saved. Attach it in the group");
+                }}
+              >
+                ▦ Copy QR
+              </button>
+            )}
             <Link className="btn btn-sm" href={`/bookings/${d.bookingId}`}>
               Open booking →
             </Link>

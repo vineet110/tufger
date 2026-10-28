@@ -1,8 +1,8 @@
 "use client";
 
 import { use, useCallback, useEffect, useState } from "react";
-import { Qr } from "@/components/Qr";
-import { copyText, Toaster, toast } from "@/components/Toast";
+import { ScanToPay } from "@/components/ScanToPay";
+import { Toaster, toast } from "@/components/Toast";
 import { Wordmark } from "@/components/Wordmark";
 import { api } from "@/lib/api";
 import { fmtDate, fmtTime, rupees } from "@/lib/format";
@@ -15,7 +15,6 @@ export function BillView({ params }: { params: Promise<{ slug: string }> }) {
   const [error, setError] = useState("");
   const [utr, setUtr] = useState("");
   const [busy, setBusy] = useState(false);
-  const [showQr, setShowQr] = useState(false);
   const [tapped, setTapped] = useState(false);
 
   const load = useCallback(() => api.publicBill(slug).then(setB, (e) => setError(e.message)), [slug]);
@@ -130,21 +129,13 @@ export function BillView({ params }: { params: Promise<{ slug: string }> }) {
               Pay {rupees(b.due)} via UPI
             </a>
             <div className="mt-2 text-center text-xs text-muted">Opens GPay · PhonePe · Paytm · BHIM with the amount filled in</div>
-            <div className="mt-4 flex items-center justify-center gap-4 text-xs">
-              <button className="text-chalk-dim underline" onClick={() => setShowQr((s) => !s)}>
-                {showQr ? "Hide QR" : "Show QR code"}
-              </button>
-              <button className="font-[family-name:var(--font-jet)] text-chalk-dim underline" onClick={() => copyText(b.upi_id, "UPI ID copied")}>
-                {b.upi_id}
-              </button>
-            </div>
-            {showQr && (
-              <div className="rise mt-4 flex justify-center">
-                <div className="rounded-xl bg-chalk p-3">
-                  <Qr value={link} size={220} />
-                </div>
-              </div>
-            )}
+            <ScanToPay
+              link={link}
+              upiId={b.upi_id}
+              title={`${first}'s turf dues · pay ${b.payee_name}`}
+              amountLine={rupees(b.due)}
+              filename={`tufger-bill-${first.toLowerCase()}.png`}
+            />
             <div className="chalk-rule my-6" />
             <div className="display text-2xl">{tapped ? "Done paying? 👇" : "Already paid?"}</div>
             <p className="mt-1 text-xs text-muted">Let {b.organizer_name} know so they can tick you off.</p>

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Big_Shoulders, Doto, Instrument_Sans, JetBrains_Mono } from "next/font/google";
+import { siteUrl } from "@/lib/site";
 import "./globals.css";
 
 const shoulders = Big_Shoulders({
@@ -26,6 +27,7 @@ const instrument = Instrument_Sans({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl()), // WhatsApp needs absolute URLs for link-preview images
   title: { default: "Tufger · Turf Booking Manager", template: "%s · Tufger" },
   description: "Split turf bookings and collect every player's share over UPI without chasing anyone.",
 };

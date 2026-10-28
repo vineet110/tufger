@@ -14,12 +14,14 @@ import type { BookingDetail } from "@/lib/types";
 export function NudgeRun({
   b,
   template,
+  upi,
   onNudged,
   onMarkPaid,
   onClose,
 }: {
   b: BookingDetail;
   template: string;
+  upi: string;
   onNudged: (entryId: number) => void;
   onMarkPaid: (entryId: number) => void;
   onClose: () => void;
@@ -34,7 +36,7 @@ export function NudgeRun({
   const e = queue[i];
   const phone = e ? (e.phone ?? savedPhones[e.player_id] ?? null) : null;
   const done = i >= queue.length;
-  const message = e ? (draft ?? fillTemplate(template, b, e)) : "";
+  const message = e ? (draft ?? fillTemplate(template, b, e, upi)) : "";
   const over = Math.floor(i / 6) + 1;
   const ball = (i % 6) + 1;
 
