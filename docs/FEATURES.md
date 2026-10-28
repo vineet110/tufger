@@ -55,6 +55,7 @@ _Last updated: 2026-10-28_
 - [x] Dashboard: all bookings, money to collect, upcoming games
 - [x] Activity log per booking (claims, confirmations, edits)
 - [ ] Export a booking / ledger to Excel
+- [x] Free hosting setup: one Vercel project (Next.js + FastAPI services) on Neon
 - [ ] Multiple organisers / co-admins
 - [ ] Recurring bookings (every Sunday 7 AM)
 
