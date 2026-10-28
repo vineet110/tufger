@@ -13,7 +13,8 @@ export interface Ground {
   name: string;
   area: string;
   sport: Sport;
-  price_per_hour: number;
+  price_per_hour: number; // weekday
+  weekend_price_per_hour: number | null; // null = same as weekday
   bookings: number;
 }
 
@@ -43,6 +44,11 @@ export interface BookingSummary {
   start_time: string;
   duration_min: number;
   total_amount: number;
+  rate_per_hour: number;
+  is_weekend: boolean;
+  base_amount: number;
+  discount: number;
+  discount_note: string;
   archived: boolean;
   created_at: string;
   tally: Tally;
@@ -78,6 +84,8 @@ export interface PublicBooking {
   start_time: string;
   duration_min: number;
   total_amount: number;
+  base_amount: number;
+  discount: number;
   organizer_name: string;
   upi_id: string;
   payee_name: string;

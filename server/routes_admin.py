@@ -66,7 +66,8 @@ def list_grounds(db: Session = Depends(get_db)):
     return [
         schemas.GroundOut(
             id=g.id, name=g.name, area=g.area, sport=g.sport,
-            price_per_hour=g.price_per_hour, bookings=counts.get(g.id, 0),
+            price_per_hour=g.price_per_hour, weekend_price_per_hour=g.weekend_price_per_hour,
+            bookings=counts.get(g.id, 0),
         )
         for g in grounds
     ]
@@ -135,7 +136,11 @@ def create_booking(body: schemas.BookingIn, db: Session = Depends(get_db)):
     roster = list(body.players)
     if body.include_organizer:
         roster.insert(0, schemas.RosterPlayer(name=settings.organizer_name or "Organiser"))
-    amounts = split_amount(body.total_amount, [p.amount for p in roster], body.round_to)
+    base_amount = round(body.rate_per_hour * body.duration_min / 60)
+    total_amount = base_amount - body.discount
+    if total_amount <= 0:
+        raise HTTPException(400, "The discount can't be more than the ground charges")
+    amounts = split_amount(total_amount, [p.amount for p in roster], body.round_to)
 
     booking = Booking(
         ground_id=ground.id,
@@ -144,7 +149,12 @@ def create_booking(body: schemas.BookingIn, db: Session = Depends(get_db)):
         play_date=body.play_date,
         start_time=body.start_time,
         duration_min=body.duration_min,
-        total_amount=body.total_amount,
+        rate_per_hour=body.rate_per_hour,
+        is_weekend=body.is_weekend,
+        base_amount=base_amount,
+        discount=body.discount,
+        discount_note=body.discount_note.strip(),
+        total_amount=total_amount,
         round_to=body.round_to,
         notes=body.notes,
     )
@@ -163,7 +173,9 @@ def create_booking(body: schemas.BookingIn, db: Session = Depends(get_db)):
             is_organizer=is_org, status="paid" if is_org else "pending",
             paid_at=utcnow() if is_org else None,
         ))
-    log(db, booking, "created", f"Booking created with {len(seen)} players, ₹{body.total_amount} total")
+    rate = f"{'weekend' if body.is_weekend else 'weekday'} rate ₹{body.rate_per_hour}/hr"
+    off = f", ₹{body.discount} discount" if body.discount else ""
+    log(db, booking, "created", f"Booking created with {len(seen)} players, ₹{total_amount} total ({rate}{off})")
     db.commit()
     return _load(db, booking.id)
 

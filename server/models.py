@@ -40,7 +40,8 @@ class Ground(Base):
     name: Mapped[str] = mapped_column(String(120))
     area: Mapped[str] = mapped_column(String(120), default="")
     sport: Mapped[str] = mapped_column(String(20), default="cricket")
-    price_per_hour: Mapped[int] = mapped_column(Integer, default=0)
+    price_per_hour: Mapped[int] = mapped_column(Integer, default=0)  # weekday rate
+    weekend_price_per_hour: Mapped[int | None] = mapped_column(Integer, nullable=True)  # None = same as weekday
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -66,6 +67,12 @@ class Booking(Base):
     play_date: Mapped[date] = mapped_column(Date)
     start_time: Mapped[time] = mapped_column(Time)
     duration_min: Mapped[int] = mapped_column(Integer, default=60)
+    # how the ground amount was worked out: rate × duration − discount = total_amount
+    rate_per_hour: Mapped[int] = mapped_column(Integer, default=0)
+    is_weekend: Mapped[bool] = mapped_column(Boolean, default=False)
+    base_amount: Mapped[int] = mapped_column(Integer, default=0)
+    discount: Mapped[int] = mapped_column(Integer, default=0)
+    discount_note: Mapped[str] = mapped_column(String(120), default="")
     total_amount: Mapped[int] = mapped_column(Integer)
     round_to: Mapped[int] = mapped_column(Integer, default=1)
     notes: Mapped[str] = mapped_column(Text, default="")

@@ -14,7 +14,10 @@ _Last updated: 2026-10-28_
 - [x] **Date** of the game
 - [x] **Start time**
 - [x] **Duration** (30 min steps; end time shown automatically)
-- [x] **Ground amount**: auto-filled as price/hr × duration, editable
+- [x] **Weekday & weekend rates** per ground (weekend falls back to the weekday rate if not set)
+- [x] Rate picked automatically from the date (Sat/Sun = weekend), with a manual switch for holidays
+- [x] **Discounts**: ₹ off or % off per booking, with an optional reason shown to players
+- [x] **Ground amount**: rate/hr × duration − discount, with an editable rate
 - [x] **Player list: paste**: paste a WhatsApp list in any shape (`1. Rahul 98765 43210`, `+91…`, emojis, dashes)
 - [x] **Player list: Excel / CSV upload** (.xlsx / .csv; finds the name and phone columns automatically)
 - [x] **Total player count**: counted live from the pasted or uploaded list, duplicates removed

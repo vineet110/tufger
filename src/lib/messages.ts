@@ -42,6 +42,7 @@ export function groupMessage(b: BookingDetail): string {
   const lines = [
     `${sportEmoji[b.sport]} *${b.ground_name}*`,
     `📅 ${fmtDate(b.play_date, { weekday: "long", day: "numeric", month: "short" })} · ${fmtTime(b.start_time)} (${fmtDuration(b.duration_min)})`,
+    ...(b.discount > 0 ? [`🏷️ ${rupees(b.discount)} discount applied${b.discount_note ? ` (${b.discount_note})` : ""}`] : []),
     `🎯 Target ${rupees(b.tally.target)} · Collected ${rupees(b.tally.collected)}`,
     "",
   ];

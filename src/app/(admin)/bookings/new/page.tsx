@@ -5,12 +5,19 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "@/components/Toast";
 import { api } from "@/lib/api";
 import { isoDay, useToday } from "@/lib/client";
-import { endTime, fmtDate, fmtDuration, fmtTime, rupees, sportEmoji, sportLabel } from "@/lib/format";
+import { endTime, fmtDate, fmtDuration, fmtTime, parseDate, rupees, sportEmoji, sportLabel } from "@/lib/format";
 import { mergeRosters, parseRoster, splitAmount } from "@/lib/roster";
 import type { Ground, RosterRow, Settings, Sport } from "@/lib/types";
 
 const DURATIONS = [60, 90, 120, 150, 180];
 const START_PRESETS = ["06:00", "07:00", "08:00", "19:00", "21:00", "23:00"];
+const DISCOUNT_MODES = [
+  { v: "none", label: "None" },
+  { v: "flat", label: "₹ off" },
+  { v: "percent", label: "% off" },
+] as const;
+type DiscountMode = (typeof DISCOUNT_MODES)[number]["v"];
+
 const ROUNDING = [
   { v: 1, label: "Exact" },
   { v: 5, label: "₹5" },
@@ -41,7 +48,7 @@ export default function NewBookingPage() {
       { label: "This Sun", iso: shift((7 - base.getDay()) % 7 || 7) },
     ];
   }, [today]);
-  const [pickedDate, setDate] = useState("");
+  const [pickedDate, setPickedDate] = useState("");
   const date = pickedDate || quickDays[1]?.iso || "";
   const [start, setStart] = useState("07:00");
   const [duration, setDuration] = useState(120);
@@ -53,8 +60,12 @@ export default function NewBookingPage() {
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const [manualAmount, setAmount] = useState(0);
-  const [amountTouched, setAmountTouched] = useState(false);
+  const [dayOverride, setDayOverride] = useState<"weekday" | "weekend" | null>(null);
+  const [manualRate, setRate] = useState(0);
+  const [rateTouched, setRateTouched] = useState(false);
+  const [discountMode, setDiscountMode] = useState<DiscountMode>("none");
+  const [discountValue, setDiscountValue] = useState(0);
+  const [discountNote, setDiscountNote] = useState("");
   const [roundTo, setRoundTo] = useState(10);
   const [includeMe, setIncludeMe] = useState(false);
   const [notes, setNotes] = useState("");
@@ -72,9 +83,30 @@ export default function NewBookingPage() {
   const ground = grounds?.find((g) => g.id === groundId) ?? null;
   const sport: Sport = ground?.sport ?? "cricket";
 
-  // ground amount follows price × duration until the organiser types their own
-  const autoAmount = ground ? Math.round((ground.price_per_hour * duration) / 60) : 0;
-  const amount = amountTouched ? manualAmount : autoAmount;
+  // a new date re-detects weekday/weekend and goes back to the ground's rate
+  const setDate = (iso: string) => {
+    setPickedDate(iso);
+    setDayOverride(null);
+    setRateTouched(false);
+  };
+
+  // Sat/Sun use the weekend rate; the organiser can flip it (e.g. public holidays)
+  const dateIsWeekend = date ? [0, 6].includes(parseDate(date).getDay()) : false;
+  const isWeekend = dayOverride ? dayOverride === "weekend" : dateIsWeekend;
+  const groundRate = ground ? (isWeekend ? (ground.weekend_price_per_hour ?? ground.price_per_hour) : ground.price_per_hour) : 0;
+  const rate = rateTouched ? manualRate : groundRate;
+  const baseAmount = Math.round((rate * duration) / 60);
+  const discount =
+    discountMode === "flat"
+      ? Math.min(discountValue, baseAmount)
+      : discountMode === "percent"
+        ? Math.round((baseAmount * Math.min(discountValue, 100)) / 100)
+        : 0;
+  const amount = baseAmount - discount;
+  const chooseDay = (d: "weekday" | "weekend") => {
+    setDayOverride(d === (dateIsWeekend ? "weekend" : "weekday") ? null : d);
+    setRateTouched(false);
+  };
 
   const roster = useMemo(() => {
     const key = (r: RosterRow) => r.phone ?? r.name.toLowerCase();
@@ -116,7 +148,10 @@ export default function NewBookingPage() {
         play_date: date,
         start_time: start,
         duration_min: duration,
-        total_amount: amount,
+        rate_per_hour: rate,
+        is_weekend: isWeekend,
+        discount,
+        discount_note: discount ? discountNote : "",
         round_to: roundTo,
         include_organizer: includeMe,
         notes,
@@ -129,7 +164,7 @@ export default function NewBookingPage() {
     }
   }
 
-  const missing = !groundId ? "Pick a ground" : !date ? "Pick a date" : !roster.length ? "Add players" : amount <= 0 ? "Enter the ground amount" : "";
+  const missing = !groundId ? "Pick a ground" : !date ? "Pick a date" : !roster.length ? "Add players" : rate <= 0 ? "Enter the rate per hour" : amount <= 0 ? "Discount is more than the charges" : "";
 
   return (
     <div>
@@ -153,7 +188,7 @@ export default function NewBookingPage() {
                     type="button"
                     onClick={() => {
                       setGroundId(g.id);
-                      setAmountTouched(false);
+                      setRateTouched(false);
                     }}
                     className={`rounded-xl border p-4 text-left transition-all ${
                       groundId === g.id
@@ -166,9 +201,21 @@ export default function NewBookingPage() {
                       <span className="text-xl">{sportEmoji[g.sport]}</span>
                     </div>
                     <div className="text-xs text-muted">{g.area || sportLabel[g.sport]}</div>
-                    <div className="led mt-2 text-xl">
-                      {rupees(g.price_per_hour)}
-                      <span className="text-sm opacity-60">/hr</span>
+                    <div className="mt-2 flex gap-5">
+                      <div>
+                        <div className="eyebrow !text-[0.68rem]">Weekday</div>
+                        <div className="led text-lg">
+                          {rupees(g.price_per_hour)}
+                          <span className="text-xs opacity-60">/hr</span>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="eyebrow !text-[0.68rem]">Weekend</div>
+                        <div className="led text-lg">
+                          {rupees(g.weekend_price_per_hour ?? g.price_per_hour)}
+                          <span className="text-xs opacity-60">/hr</span>
+                        </div>
+                      </div>
                     </div>
                   </button>
                 ))}
@@ -189,7 +236,7 @@ export default function NewBookingPage() {
                 onCreated={(g) => {
                   setGrounds((list) => [...(list ?? []), g]);
                   setGroundId(g.id);
-                  setAmountTouched(false);
+                  setRateTouched(false);
                   setAddingGround(false);
                 }}
               />
@@ -349,38 +396,107 @@ export default function NewBookingPage() {
           </Step>
 
           {/* 04 MONEY */}
-          <Step n="04" title="Ground amount & split" hint="What the turf charges you">
+          <Step n="04" title="Charges & split" hint="Weekday or weekend rate, any discount">
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
                 <label className="eyebrow label flex items-center gap-2">
-                  Total ground amount
-                  {!amountTouched && ground && <span className="chip chip-paid !text-[0.68rem]">auto</span>}
+                  Charge as
+                  {!dayOverride && date && <span className="chip chip-paid !text-[0.68rem]">auto · {fmtDate(date, { weekday: "long" })}</span>}
+                </label>
+                <div className="seg">
+                  <button type="button" aria-pressed={!isWeekend} onClick={() => chooseDay("weekday")}>
+                    Weekday
+                  </button>
+                  <button type="button" aria-pressed={isWeekend} onClick={() => chooseDay("weekend")}>
+                    Weekend
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-muted">
+                  {dayOverride ? "Changed by you (for example, a public holiday)." : "Picked from the date. Tap to change it for holidays."}
+                </p>
+              </div>
+              <div>
+                <label className="eyebrow label flex items-center gap-2">
+                  Rate per hour
+                  {!rateTouched && ground && <span className="chip chip-paid !text-[0.68rem]">auto</span>}
                 </label>
                 <div className="relative">
-                  <span className="led absolute top-1/2 left-4 -translate-y-1/2 text-2xl">₹</span>
+                  <span className="led absolute top-1/2 left-4 -translate-y-1/2 text-xl">₹</span>
                   <input
                     type="number"
                     inputMode="numeric"
                     min={0}
-                    className="field led !pl-10 !text-3xl"
-                    value={amount || ""}
+                    className="field led !pl-9 !text-2xl"
+                    value={rate || ""}
                     onChange={(e) => {
-                      setAmountTouched(true);
-                      setAmount(Math.max(0, Number(e.target.value)));
+                      setRateTouched(true);
+                      setRate(Math.max(0, Number(e.target.value)));
                     }}
                   />
                 </div>
                 {ground && (
                   <p className="mt-2 text-xs text-muted">
-                    {rupees(ground.price_per_hour)}/hr × {fmtDuration(duration)} = {rupees((ground.price_per_hour * duration) / 60)}
-                    {amountTouched && (
-                      <button type="button" className="ml-2 text-lime underline" onClick={() => setAmountTouched(false)}>
-                        use this
+                    Weekday {rupees(ground.price_per_hour)} · Weekend {rupees(ground.weekend_price_per_hour ?? ground.price_per_hour)}
+                    {rateTouched && (
+                      <button type="button" className="ml-2 text-lime underline" onClick={() => setRateTouched(false)}>
+                        use {rupees(groundRate)}
                       </button>
                     )}
                   </p>
                 )}
               </div>
+            </div>
+
+            <div className="mt-5">
+              <label className="eyebrow label">Discount</label>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="seg">
+                  {DISCOUNT_MODES.map((d) => (
+                    <button key={d.v} type="button" aria-pressed={discountMode === d.v} onClick={() => setDiscountMode(d.v)}>
+                      {d.label}
+                    </button>
+                  ))}
+                </div>
+                {discountMode !== "none" && (
+                  <>
+                    <div className="relative w-32">
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        className="field led !pr-9 !text-xl"
+                        placeholder={discountMode === "flat" ? "300" : "10"}
+                        value={discountValue || ""}
+                        onChange={(e) => setDiscountValue(Math.max(0, Number(e.target.value)))}
+                      />
+                      <span className="led absolute top-1/2 right-3 -translate-y-1/2">{discountMode === "flat" ? "₹" : "%"}</span>
+                    </div>
+                    <input
+                      className="field min-w-[180px] flex-1"
+                      placeholder="Reason (optional), e.g. regulars offer"
+                      maxLength={120}
+                      value={discountNote}
+                      onChange={(e) => setDiscountNote(e.target.value)}
+                    />
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-line bg-black/40 p-4 text-sm">
+              <BillRow k={`${rupees(rate)}/hr × ${fmtDuration(duration)} · ${isWeekend ? "weekend" : "weekday"} rate`} v={rupees(baseAmount)} />
+              {discount > 0 && (
+                <BillRow
+                  k={`Discount${discountMode === "percent" ? ` (${Math.min(discountValue, 100)}%)` : ""}${discountNote ? ` · ${discountNote}` : ""}`}
+                  v={`− ${rupees(discount)}`}
+                  tone="lime"
+                />
+              )}
+              <div className="my-2 border-t border-dashed border-line" />
+              <BillRow k="Ground amount to split" v={rupees(amount)} tone="strong" />
+            </div>
+
+            <div className="mt-5 grid gap-5 sm:grid-cols-2">
               <div>
                 <label className="eyebrow label">Round each share up to</label>
                 <div className="seg">
@@ -392,10 +508,10 @@ export default function NewBookingPage() {
                 </div>
                 <p className="mt-2 text-xs text-muted">Rounding up means you never end up short on change.</p>
               </div>
-            </div>
-            <div className="mt-5">
-              <label className="eyebrow label">Note for players (optional)</label>
-              <input className="field" placeholder="Bring a white ball 🏏" value={notes} onChange={(e) => setNotes(e.target.value)} />
+              <div>
+                <label className="eyebrow label">Note for players (optional)</label>
+                <input className="field" placeholder="Bring a white ball 🏏" value={notes} onChange={(e) => setNotes(e.target.value)} />
+              </div>
             </div>
           </Step>
         </div>
@@ -419,6 +535,9 @@ export default function NewBookingPage() {
               <Row k="Date" v={date ? fmtDate(date, { weekday: "short", day: "numeric", month: "short", year: "numeric" }) : "—"} />
               <Row k="Time" v={`${fmtTime(start)} – ${fmtTime(endTime(start, duration))}`} />
               <Row k="Duration" v={fmtDuration(duration)} />
+              <Row k="Rate" v={`${rupees(rate)}/hr · ${isWeekend ? "weekend" : "weekday"}`} />
+              {discount > 0 && <Row k="Discount" v={`− ${rupees(discount)}`} />}
+              <Row k="Ground amount" v={rupees(amount)} />
               <Row k="Players" v={String(headcount)} />
               <Row k="You'll collect" v={rupees(collectTotal - myShare)} strong />
               {surplus > 0 && <Row k="Rounding buffer" v={`+${rupees(surplus)}`} />}
@@ -448,6 +567,15 @@ function Step({ n, title, hint, children }: { n: string; title: string; hint: st
       </div>
       {children}
     </section>
+  );
+}
+
+function BillRow({ k, v, tone }: { k: string; v: string; tone?: "lime" | "strong" }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 py-0.5">
+      <span className="text-chalk-dim">{k}</span>
+      <span className={`led whitespace-nowrap ${tone === "lime" ? "led-lime" : ""} ${tone === "strong" ? "text-xl" : ""}`}>{v}</span>
+    </div>
   );
 }
 
@@ -499,12 +627,19 @@ function QuickGround({ onCreated, onCancel }: { onCreated: (g: Ground) => void; 
   const [area, setArea] = useState("");
   const [sport, setSport] = useState<Sport>("cricket");
   const [price, setPrice] = useState("");
+  const [weekendPrice, setWeekendPrice] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function save() {
     setBusy(true);
     try {
-      const g = await api.createGround({ name, area, sport, price_per_hour: Number(price) || 0 });
+      const g = await api.createGround({
+        name,
+        area,
+        sport,
+        price_per_hour: Number(price) || 0,
+        weekend_price_per_hour: weekendPrice ? Number(weekendPrice) : null,
+      });
       toast(`${g.name} added`);
       onCreated({ ...g, bookings: 0 });
     } catch (e) {
@@ -527,7 +662,17 @@ function QuickGround({ onCreated, onCancel }: { onCreated: (g: Ground) => void; 
             </button>
           ))}
         </div>
-        <input className="field" type="number" inputMode="numeric" placeholder="Price per hour (₹)" value={price} onChange={(e) => setPrice(e.target.value)} />
+        <div className="grid grid-cols-2 gap-2 sm:col-span-2">
+          <input className="field" type="number" inputMode="numeric" placeholder="Weekday ₹/hr" value={price} onChange={(e) => setPrice(e.target.value)} />
+          <input
+            className="field"
+            type="number"
+            inputMode="numeric"
+            placeholder="Weekend ₹/hr (blank = same)"
+            value={weekendPrice}
+            onChange={(e) => setWeekendPrice(e.target.value)}
+          />
+        </div>
       </div>
       <div className="mt-3 flex gap-2">
         <button type="button" className="btn btn-lime btn-sm" disabled={!name || busy} onClick={save}>

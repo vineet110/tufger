@@ -1,11 +1,12 @@
 from fastapi import FastAPI
 
 import models  # noqa: F401  (registers tables)
-from db import Base, engine
+from db import Base, engine, migrate
 from routes_admin import auth_router, router as admin_router
 from routes_public import router as public_router
 
 Base.metadata.create_all(engine)
+migrate()
 
 # Site and API share one domain: everything under /api/py is FastAPI.
 # Vercel routes it here in production; next.config.ts proxies it in local dev.

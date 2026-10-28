@@ -78,6 +78,16 @@ export function ControlRoom({ params }: { params: Promise<{ id: string }> }) {
             </span>
             <span className="chip chip-pending">{fmtDuration(b.duration_min)}</span>
             <span className="chip chip-pending">{b.entries.length} players</span>
+            {b.rate_per_hour > 0 && (
+              <span className="chip chip-pending">
+                {b.is_weekend ? "Weekend" : "Weekday"} rate {rupees(b.rate_per_hour)}/hr
+              </span>
+            )}
+            {b.discount > 0 && (
+              <span className="chip chip-paid" title={b.discount_note || undefined}>
+                − {rupees(b.discount)} discount{b.discount_note ? ` · ${b.discount_note}` : ""}
+              </span>
+            )}
             <span className="chip chip-pending">Ground {rupees(b.total_amount)}</span>
             {b.ground_area && <span className="chip chip-pending">{b.ground_area}</span>}
           </div>

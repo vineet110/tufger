@@ -22,7 +22,8 @@ class GroundIn(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     area: str = Field(default="", max_length=120)
     sport: Sport = "cricket"
-    price_per_hour: int = Field(ge=0)
+    price_per_hour: int = Field(ge=0)  # weekday
+    weekend_price_per_hour: int | None = Field(default=None, ge=0)
 
 
 class GroundOut(GroundIn):
@@ -41,7 +42,10 @@ class BookingIn(BaseModel):
     play_date: date
     start_time: time
     duration_min: int = Field(ge=15, le=24 * 60)
-    total_amount: int = Field(gt=0)
+    rate_per_hour: int = Field(gt=0)
+    is_weekend: bool = False
+    discount: int = Field(default=0, ge=0)
+    discount_note: str = Field(default="", max_length=120)
     round_to: int = Field(default=1, ge=1)
     include_organizer: bool = False
     notes: str = ""
@@ -97,6 +101,11 @@ class BookingSummary(BaseModel):
     start_time: time
     duration_min: int
     total_amount: int
+    rate_per_hour: int
+    is_weekend: bool
+    base_amount: int
+    discount: int
+    discount_note: str
     archived: bool
     created_at: datetime
     tally: Tally
@@ -144,6 +153,8 @@ class PublicBooking(BaseModel):
     start_time: time
     duration_min: int
     total_amount: int
+    base_amount: int
+    discount: int
     organizer_name: str
     upi_id: str
     payee_name: str

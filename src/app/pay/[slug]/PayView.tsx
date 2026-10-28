@@ -80,6 +80,7 @@ export function PayView({ params }: { params: Promise<{ slug: string }> }) {
         </div>
         <div className="border-t border-line px-5 py-3 text-xs text-chalk-dim">
           Collected by <span className="text-chalk">{b.organizer_name}</span> · ground {rupees(b.total_amount)} split across {b.tally.players}
+          {b.discount > 0 && <span className="text-lime"> · {rupees(b.discount)} discount applied 🎉</span>}
         </div>
       </section>
 

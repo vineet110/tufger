@@ -7,7 +7,7 @@ import { rupees, sportEmoji, sportLabel } from "@/lib/format";
 import type { Ground, Sport } from "@/lib/types";
 
 type Draft = Omit<Ground, "id" | "bookings">;
-const EMPTY: Draft = { name: "", area: "", sport: "cricket", price_per_hour: 0 };
+const EMPTY: Draft = { name: "", area: "", sport: "cricket", price_per_hour: 0, weekend_price_per_hour: null };
 
 export default function GroundsPage() {
   const [grounds, setGrounds] = useState<Ground[] | null>(null);
@@ -74,9 +74,15 @@ export default function GroundsPage() {
                   {g.area || "—"} · {sportLabel[g.sport]} · {g.bookings} booking{g.bookings === 1 ? "" : "s"}
                 </div>
               </div>
-              <div className="text-right">
-                <div className="led text-2xl">{rupees(g.price_per_hour)}</div>
-                <div className="eyebrow !text-[0.68rem]">per hour</div>
+              <div className="flex gap-4 text-right">
+                <div>
+                  <div className="eyebrow !text-[0.68rem]">Weekday</div>
+                  <div className="led text-xl">{rupees(g.price_per_hour)}</div>
+                </div>
+                <div>
+                  <div className="eyebrow !text-[0.68rem]">Weekend</div>
+                  <div className="led text-xl">{rupees(g.weekend_price_per_hour ?? g.price_per_hour)}</div>
+                </div>
               </div>
             </button>
           ),
@@ -100,7 +106,13 @@ function GroundForm({
   onCancel: () => void;
   onDelete?: () => void;
 }) {
-  const [d, setD] = useState<Draft>({ name: initial.name, area: initial.area, sport: initial.sport, price_per_hour: initial.price_per_hour });
+  const [d, setD] = useState<Draft>({
+    name: initial.name,
+    area: initial.area,
+    sport: initial.sport,
+    price_per_hour: initial.price_per_hour,
+    weekend_price_per_hour: initial.weekend_price_per_hour,
+  });
   const [busy, setBusy] = useState(false);
   return (
     <div className="slab rise border-lime/40 p-5 md:col-span-2">
@@ -123,15 +135,28 @@ function GroundForm({
             ))}
           </div>
         </div>
-        <div>
-          <label className="eyebrow label">Price per hour (₹)</label>
-          <input
-            className="field led !text-xl"
-            type="number"
-            inputMode="numeric"
-            value={d.price_per_hour || ""}
-            onChange={(e) => setD({ ...d, price_per_hour: Math.max(0, Number(e.target.value)) })}
-          />
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="eyebrow label">Weekday ₹/hr</label>
+            <input
+              className="field led !text-xl"
+              type="number"
+              inputMode="numeric"
+              value={d.price_per_hour || ""}
+              onChange={(e) => setD({ ...d, price_per_hour: Math.max(0, Number(e.target.value)) })}
+            />
+          </div>
+          <div>
+            <label className="eyebrow label">Weekend ₹/hr</label>
+            <input
+              className="field led !text-xl"
+              type="number"
+              inputMode="numeric"
+              placeholder="same"
+              value={d.weekend_price_per_hour ?? ""}
+              onChange={(e) => setD({ ...d, weekend_price_per_hour: e.target.value === "" ? null : Math.max(0, Number(e.target.value)) })}
+            />
+          </div>
         </div>
       </div>
       <div className="mt-4 flex gap-2">
