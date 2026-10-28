@@ -54,8 +54,8 @@ export function PlayerKhata({ params }: { params: Promise<{ id: string }> }) {
 
   return (
     <div className="space-y-6">
-      <Link href="/khata" className="eyebrow inline-block hover:text-chalk">
-        ← Khata
+      <Link href="/scorebook" className="eyebrow inline-block hover:text-chalk">
+        ← Scorebook
       </Link>
 
       <header className="rise flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
@@ -99,7 +99,7 @@ export function PlayerKhata({ params }: { params: Promise<{ id: string }> }) {
         </div>
       </header>
 
-      {editing && <EditPlayer p={p} onSaved={(d) => (setP(d), setEditing(false), toast("Saved"))} onDeleted={() => router.push("/khata")} />}
+      {editing && <EditPlayer p={p} onSaved={(d) => (setP(d), setEditing(false), toast("Saved"))} onDeleted={() => router.push("/scorebook")} />}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <div className="space-y-5">

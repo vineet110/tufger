@@ -2,6 +2,7 @@
 
 import { use, useCallback, useEffect, useState } from "react";
 import { ScanToPay } from "@/components/ScanToPay";
+import { SiteFooter } from "@/components/SiteFooter";
 import { Toaster, toast } from "@/components/Toast";
 import { Wordmark } from "@/components/Wordmark";
 import { api } from "@/lib/api";
@@ -153,7 +154,7 @@ export function BillView({ params }: { params: Promise<{ slug: string }> }) {
           </section>
         ))}
 
-      <p className="mt-12 text-center text-xs text-muted">Payments go straight to {b.payee_name}&apos;s UPI. Tufger never touches your money.</p>
+      <SiteFooter className="mt-12 -mx-4 rounded-t-2xl" />
       <Toaster />
     </div>
   );

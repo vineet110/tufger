@@ -1,4 +1,4 @@
-"""Khata: every player's running account (games charged, payments, extra dues),
+"""Scorebook: every player's running account (games charged, payments, extra dues),
 personal bill links, and an Excel backup."""
 
 import io
@@ -12,13 +12,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 import schemas
-from auth import require_admin
+from auth import require_admin, require_key
 from db import get_db
 from models import Entry, LedgerTxn, Player, new_slug, utcnow
 from roster import normalize_phone
 from services import get_app_settings, log, pay_rating
 
-router = APIRouter(prefix="/khata", tags=["khata"], dependencies=[Depends(require_admin)])
+router = APIRouter(prefix="/khata", tags=["scorebook"], dependencies=[Depends(require_admin), Depends(require_key)])
 public_router = APIRouter(prefix="/public/bill", tags=["public"])
 
 PLAYER_LOAD = (
@@ -101,7 +101,7 @@ def _history(p: Player) -> list[schemas.KhataItem]:
         title = t.note or ("Payment received" if t.kind == "got" else "Due added")
         items.append((_utc(t.created_at), 2, schemas.KhataItem(
             id=f"t{t.id}", kind=t.kind, at=_utc(t.created_at), amount=t.amount, title=title,
-            subtitle="Added in khata", txn_id=t.id, balance_after=0,
+            subtitle="Added in Scorebook", txn_id=t.id, balance_after=0,
         )))
 
     items.sort(key=lambda x: (x[0], x[1]))
@@ -230,7 +230,7 @@ def record_payment(player_id: int, body: schemas.KhataMoneyIn, db: Session = Dep
             e.status = "paid"
             e.paid_at = utcnow()
             remaining -= e.amount
-            log(db, e.booking, "paid", f"{p.name} paid ₹{e.amount} (recorded in khata)")
+            log(db, e.booking, "paid", f"{p.name} paid ₹{e.amount} (recorded in Scorebook)")
     if remaining > 0:
         note = body.note.strip() or ("Payment received" if remaining == body.amount else "Part payment / advance")
         db.add(LedgerTxn(player_id=p.id, kind="got", amount=remaining, note=note))
@@ -305,7 +305,7 @@ def export(db: Session = Depends(get_db)):
 
     buf = io.BytesIO()
     wb.save(buf)
-    filename = f"tufger-khata-{date.today():%Y-%m-%d}.xlsx"
+    filename = f"tufger-scorebook-{date.today():%Y-%m-%d}.xlsx"
     return Response(
         buf.getvalue(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

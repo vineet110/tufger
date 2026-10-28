@@ -15,9 +15,9 @@ export function AddPhone({ playerId, name, onSaved }: { playerId: number; name: 
         e.preventDefault();
         setSaving(true);
         try {
-          const p = await api.updatePlayer(playerId, { phone: value });
+          const p = await api.setPhone(playerId, value);
           toast(`Number saved for ${name}`);
-          if (p.phone) onSaved(p.phone);
+          onSaved(p.phone);
         } catch (err) {
           toast(err instanceof Error ? err.message : "Couldn't save the number", "err");
         } finally {

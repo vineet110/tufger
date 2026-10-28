@@ -1,36 +1,20 @@
-"""Team Sheet: turn pasted WhatsApp game posts into bookings with per-player amounts.
+"""Dugout: turn pasted WhatsApp game posts into bookings with per-player amounts.
 
-Needs the organiser login *and* the TUFGER_KEY sent as the X-Tufger-Key header.
+Needs the organiser login *and* the TUFGER_KEY (see auth.require_key).
 """
 
-import hmac
-
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 import schemas
-from auth import require_admin
-from config import get_settings
+from auth import require_admin, require_key
 from db import get_db
 from models import Booking, Entry, Ground, utcnow
 from services import log, resolve_player
 
 
-def require_key(x_tufger_key: str = Header(default="")) -> None:
-    key = get_settings().tufger_key
-    if not key:
-        raise HTTPException(503, "Team Sheet is switched off: set TUFGER_KEY on the server")
-    if not hmac.compare_digest(x_tufger_key.encode(), key.encode()):
-        raise HTTPException(403, "Wrong Tufger key")
-
-
 router = APIRouter(prefix="/teamsheet", tags=["teamsheet"], dependencies=[Depends(require_admin), Depends(require_key)])
-
-
-@router.post("/unlock")
-def unlock():
-    return {"ok": True}
 
 
 @router.post("/games", response_model=schemas.SheetGameOut)
@@ -67,6 +51,6 @@ def create_game(body: schemas.SheetGameIn, db: Session = Depends(get_db)):
             is_organizer=p.is_organizer, status="paid" if paid else "pending",
             paid_at=utcnow() if paid else None,
         ))
-    log(db, booking, "created", f"Created from Team Sheet with {len(seen)} players, ₹{total} total")
+    log(db, booking, "created", f"Created from Dugout with {len(seen)} players, ₹{total} total")
     db.commit()
     return schemas.SheetGameOut(id=booking.id, slug=booking.slug, total_amount=total, players=len(seen))

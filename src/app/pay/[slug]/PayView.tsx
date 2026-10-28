@@ -2,6 +2,7 @@
 
 import { use, useCallback, useEffect, useState } from "react";
 import { ScanToPay } from "@/components/ScanToPay";
+import { SiteFooter } from "@/components/SiteFooter";
 import { Scoreboard } from "@/components/Scoreboard";
 import { Toaster, toast } from "@/components/Toast";
 import { Wordmark } from "@/components/Wordmark";
@@ -145,10 +146,8 @@ export function PayView({ params }: { params: Promise<{ slug: string }> }) {
       </section>
 
       {entry && <PayPanel key={entry.id} b={b} entry={entry} onUpdate={setB} />}
-
-      <p className="mt-12 text-center text-xs text-muted">
-        Payments go straight to {b.payee_name}&apos;s UPI. Tufger never touches your money.
       </p>
+      <SiteFooter className="mt-12 -mx-4 rounded-t-2xl" />
       <Toaster />
     </div>
   );

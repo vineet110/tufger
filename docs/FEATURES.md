@@ -35,7 +35,7 @@ _Last updated: 2026-10-28_
 - [x] Organiser can mark someone paid manually (cash, or paid outside the app)
 - [x] Live scoreboard on the public page (collected vs target, who is still pending)
 
-## 2b. Team Sheet (locked with TUFGER_KEY)
+## 2b. Dugout (locked with TUFGER_KEY)
 
 - [x] Paste WhatsApp game posts (one or many, with or without chat timestamps) and get a card per game
 - [x] Reads times ("7 - 8 30 pm", "4 30-6pm (Today)", "Sunday 7am"), ground ("Ramp", "Match at prokick"), format ("7v 7"), status lines
@@ -55,24 +55,29 @@ _Last updated: 2026-10-28_
 - [ ] Automatic scheduled reminders (needs WhatsApp Business API / SMS provider)
 - [ ] Escalating tone for 2nd / 3rd reminder
 
-## 4. Khata (player accounts) & WhatsApp
+## 4. Scorebook (player accounts, locked with TUFGER_KEY) & WhatsApp
 
 - [x] Every player's running balance: games charged, payments, extra dues (owes you / settled / advance)
-- [x] Per-player history with the balance after each entry, like Khatabook
+- [x] Per-player history with the balance after each entry, like Scorebookbook
 - [x] **Got payment** ticks off the oldest unpaid games first; leftover is kept as an advance
 - [x] **Add due** for extra amounts (ball money, old dues); manual entries can be removed
 - [x] Add, edit, hide players; delete only when they have no history
-- [x] WhatsApp number saved on each player and reused everywhere (bookings, Team Sheet, Nudge run)
-- [x] Team Sheet fills known numbers automatically and lets you type new ones
+- [x] WhatsApp number saved on each player and reused everywhere (bookings, Dugout, Nudge run)
+- [x] Dugout fills known numbers automatically and lets you type new ones
 - [x] **Send bills**: one tap per player opens their own WhatsApp chat with their total bill (free click-to-chat links)
 - [x] Personal bill link per player: all unpaid games, one UPI payment, "I've paid everything"
 - [x] Excel backup of all players and full history
 - [x] UPI QR shown on every pay/bill page, with **Save QR** for "scan from gallery"
 - [x] WhatsApp messages carry the UPI ID and the link; the link's preview image is the payment QR
-- [x] **Copy QR image** in Send bills and Team Sheet to paste the QR into a chat
+- [x] **Copy QR image** in Send bills and Dugout to paste the QR into a chat
 - [x] Pay-speed rating per player
 - [ ] Fully automatic WhatsApp sending (needs the paid WhatsApp Business API)
 - [ ] Player groups (e.g. "Sunday Cricket Gang") for one-tap roster selection
+
+## 4b. Site
+
+- [x] Footer on every page with Privacy, Refunds and Last-minute rules (/policies)
+- [ ] Let the organiser edit the house rules from Settings
 
 ## 5. Organiser tools
 

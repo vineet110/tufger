@@ -4,13 +4,22 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { BillRun } from "@/components/BillRun";
 import { toast } from "@/components/Toast";
+import { LockButton, VaultGate } from "@/components/VaultGate";
 import { api } from "@/lib/api";
 import { initials, rupees, timeAgo } from "@/lib/format";
 import type { Bill, KhataRow } from "@/lib/types";
 
 type Filter = "owes" | "all" | "advance" | "hidden";
 
-export default function KhataPage() {
+export default function ScorebookPage() {
+  return (
+    <VaultGate title="Scorebook" blurb="Every player's account, payments and bills. Enter the Tufger key to open it.">
+      <Scorebook />
+    </VaultGate>
+  );
+}
+
+function Scorebook() {
   const [rows, setRows] = useState<KhataRow[] | null>(null);
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -71,7 +80,7 @@ export default function KhataPage() {
     <div className="space-y-6">
       <div className="rise flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <div className="eyebrow !text-led">● Khata</div>
+          <div className="eyebrow !text-led">● Scorebook</div>
           <h1 className="display mt-2 text-6xl sm:text-7xl">Every player&apos;s account</h1>
           <p className="mt-2 max-w-xl text-chalk-dim">
             Games, payments and dues for each player, saved in the cloud. Nothing is lost if your phone is.
@@ -102,6 +111,7 @@ export default function KhataPage() {
         <button className="btn" disabled={busy === "backup"} onClick={backup}>
           ⬇ {busy === "backup" ? "Preparing…" : "Excel backup"}
         </button>
+        <LockButton />
       </div>
       {noPhone > 0 && (
         <p className="text-sm text-led">
@@ -142,12 +152,12 @@ export default function KhataPage() {
         <div className="slab h-64 animate-pulse opacity-50" />
       ) : visible.length === 0 ? (
         <div className="slab p-10 text-center text-chalk-dim">
-          {rows.length ? "No one matches that." : "No players yet. They're added automatically from bookings and Team Sheet, or add one above."}
+          {rows.length ? "No one matches that." : "No players yet. They're added automatically from bookings and Dugout, or add one above."}
         </div>
       ) : (
         <div className="slab divide-y divide-line overflow-hidden">
           {visible.map((r) => (
-            <Link key={r.id} href={`/khata/${r.id}`} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/[0.03]">
+            <Link key={r.id} href={`/scorebook/${r.id}`} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/[0.03]">
               <div
                 className={`grid h-11 w-11 shrink-0 place-items-center rounded-full font-[family-name:var(--font-shoulders)] text-base font-black ${
                   r.balance > 0 ? "border-2 border-dashed border-chalk/50 text-chalk-dim" : "bg-lime text-[#0a1404]"

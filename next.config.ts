@@ -11,6 +11,15 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  // old names → Dugout and Scorebook
+  async redirects() {
+    return [
+      { source: "/teamsheet", destination: "/dugout", permanent: true },
+      { source: "/khata", destination: "/scorebook", permanent: true },
+      { source: "/khata/:id", destination: "/scorebook/:id", permanent: true },
+      { source: "/squad", destination: "/scorebook", permanent: true },
+    ];
+  },
   // On Vercel, /api/py is routed to the FastAPI service before Next.js sees it.
   // Everywhere else (local dev, phones on your Wi-Fi) Next.js forwards it to uvicorn.
   async rewrites() {

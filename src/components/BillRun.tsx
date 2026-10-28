@@ -81,10 +81,10 @@ export function BillRun({ bills, organizer, upi, onClose }: { bills: Bill[]; org
             <div className="text-6xl">📨</div>
             <div className="display mt-3 text-4xl">All bills out</div>
             <p className="mt-2 text-chalk-dim">
-              {sent} bill{sent === 1 ? "" : "s"} sent. Payments show up in the khata as players pay.
+              {sent} bill{sent === 1 ? "" : "s"} sent. Payments show up in the Scorebook as players pay.
             </p>
             <button className="btn btn-lime mt-6" onClick={onClose}>
-              Back to the khata
+              Back to the Scorebook
             </button>
           </div>
         ) : (

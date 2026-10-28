@@ -4,14 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { api, getToken, setToken } from "@/lib/api";
+import { SiteFooter } from "./SiteFooter";
 import { Toaster } from "./Toast";
 import { Wordmark } from "./Wordmark";
 
 const NAV = [
   { href: "/", label: "Pavilion" },
   { href: "/bookings/new", label: "New booking" },
-  { href: "/teamsheet", label: "Team Sheet" },
-  { href: "/khata", label: "Khata" },
+  { href: "/dugout", label: "Dugout" },
+  { href: "/scorebook", label: "Scorebook" },
   { href: "/grounds", label: "Grounds" },
   { href: "/settings", label: "Settings" },
 ];
@@ -67,7 +68,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </nav>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-8 pb-24">{children}</main>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-8 pb-16">{children}</main>
+      <SiteFooter className="pb-20 sm:pb-0" />
       <div className="fixed right-4 bottom-5 z-40 sm:hidden">
         <Link href="/bookings/new" className="btn btn-lime rounded-full !px-5 !py-4 shadow-2xl">
           + Booking
@@ -158,6 +160,11 @@ function Login({ onIn }: { onIn: () => void }) {
           </button>
         </form>
         <p className="mt-6 text-center text-xs text-muted">Players don&apos;t need this. They pay from the link you share.</p>
+        <p className="mt-3 text-center text-xs">
+          <a href="/policies" className="text-chalk-dim underline hover:text-lime">
+            Privacy · Refunds · Last-minute rules
+          </a>
+        </p>
       </div>
     </div>
   );

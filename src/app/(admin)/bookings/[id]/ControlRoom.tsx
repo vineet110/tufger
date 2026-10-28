@@ -327,8 +327,8 @@ function PlayerPanel({
           <div className="display text-3xl">{e.name}</div>
           <div className="font-mono text-xs text-muted">
             {e.phone ? `+91 ${e.phone}` : "No WhatsApp number yet"} ·{" "}
-            <Link href={`/khata/${e.player_id}`} className="underline hover:text-chalk">
-              khata
+            <Link href={`/scorebook/${e.player_id}`} className="underline hover:text-chalk">
+              scorebook
             </Link>
           </div>
         </div>

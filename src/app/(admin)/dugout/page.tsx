@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { copyText, toast } from "@/components/Toast";
+import { LockButton, VaultGate } from "@/components/VaultGate";
 import { ApiError, api } from "@/lib/api";
 import { fmtDate, fmtDuration, fmtTime, rupees, sportEmoji } from "@/lib/format";
 import { fillNote, payLink, upiLink, whatsappLink } from "@/lib/messages";
@@ -12,7 +13,6 @@ import type { Ground, Sport } from "@/lib/types";
 
 // This page only renders in the browser (AdminShell shows a loader until login is checked),
 // so storage can be read in state initialisers.
-const KEY_STORE = "tufger.sheetKey";
 const DRAFT_STORE = "tufger.sheetDrafts";
 const DEFAULT_MESSAGE = "{sport} *{ground}* · {date} · {time}\n₹{amount} each. Pay here 👉 {link}";
 const SPORTS: Sport[] = ["football", "cricket", "other"];
@@ -45,9 +45,9 @@ interface Draft {
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-function read<T>(storage: "local" | "session", key: string, fallback: T): T {
+function read<T>(key: string, fallback: T): T {
   try {
-    const raw = (storage === "local" ? localStorage : sessionStorage).getItem(key);
+    const raw = localStorage.getItem(key);
     return raw ? (JSON.parse(raw) as T) : fallback;
   } catch {
     return fallback;
@@ -75,71 +75,16 @@ function fillGameInfo(message: string, d: Draft): string {
     .replaceAll("{time}", `${fmtTime(d.start)}–${fmtTime(d.end)}`);
 }
 
-export default function TeamSheetPage() {
-  const [key, setKey] = useState<string | null>(() => read<string | null>("session", KEY_STORE, null));
-
-  if (!key) return <Unlock onUnlock={setKey} />;
+export default function DugoutPage() {
   return (
-    <Sheet
-      sheetKey={key}
-      onLocked={() => {
-        try {
-          sessionStorage.removeItem(KEY_STORE);
-        } catch {}
-        setKey(null);
-      }}
-    />
+    <VaultGate title="Dugout" blurb="Paste your WhatsApp game posts and turn them into pay links. Enter the Tufger key to open it.">
+      <Dugout />
+    </VaultGate>
   );
 }
 
-function Unlock({ onUnlock }: { onUnlock: (key: string) => void }) {
-  const [value, setValue] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      await api.sheetUnlock(value);
-      try {
-        sessionStorage.setItem(KEY_STORE, JSON.stringify(value));
-      } catch {}
-      onUnlock(value);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't unlock");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="grid place-items-center py-10">
-      <form onSubmit={submit} className="board rise w-full max-w-md p-7 pt-9 text-center">
-        <div className="eyebrow !text-led">🔒 Locked</div>
-        <div className="led dot mt-2 text-4xl">TEAM SHEET</div>
-        <p className="mt-3 text-sm text-chalk-dim">Paste your WhatsApp game posts and turn them into pay links. Enter the Tufger key to open it.</p>
-        <input
-          type="password"
-          autoFocus
-          inputMode="numeric"
-          className="field led mt-6 text-center !text-2xl tracking-[0.4em]"
-          placeholder="••••"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-        />
-        {error && <p className="mt-3 text-sm text-red">✕ {error}</p>}
-        <button className="btn btn-lime mt-5 w-full !py-3.5" disabled={!value || busy}>
-          {busy ? "Checking…" : "Unlock"}
-        </button>
-      </form>
-    </div>
-  );
-}
-
-function Sheet({ sheetKey, onLocked }: { sheetKey: string; onLocked: () => void }) {
-  const [drafts, setDrafts] = useState<Draft[]>(() => read<Draft[]>("local", DRAFT_STORE, []));
+function Dugout() {
+  const [drafts, setDrafts] = useState<Draft[]>(() => read<Draft[]>(DRAFT_STORE, []));
   const [paste, setPaste] = useState("");
   const [grounds, setGrounds] = useState<Ground[]>([]);
   const [organizer, setOrganizer] = useState("");
@@ -150,7 +95,7 @@ function Sheet({ sheetKey, onLocked }: { sheetKey: string; onLocked: () => void 
   useEffect(() => {
     api.grounds().then(setGrounds, () => {});
     api.settings().then((s) => (setOrganizer(s.organizer_name), setUpi(s.upi_id)), () => {});
-    // name → WhatsApp number from the khata, so known players come pre-filled
+    // name → WhatsApp number from the Scorebook, so known players come pre-filled
     api.khata().then((rows) => {
       const seen = new Map<string, string | null>();
       rows.forEach((r) => {
@@ -207,7 +152,7 @@ function Sheet({ sheetKey, onLocked }: { sheetKey: string; onLocked: () => void 
   async function create(d: Draft): Promise<boolean> {
     update(d.id, { state: "saving" });
     try {
-      const res = await api.sheetCreateGame(sheetKey, {
+      const res = await api.createDugoutGame({
         ground_name: d.ground.trim(),
         sport: d.sport,
         play_date: d.date,
@@ -226,10 +171,8 @@ function Sheet({ sheetKey, onLocked }: { sheetKey: string; onLocked: () => void 
       return true;
     } catch (e) {
       update(d.id, { state: "draft" });
-      if (e instanceof ApiError && e.status === 403) {
-        toast("The Tufger key changed. Unlock again", "err");
-        onLocked();
-      } else toast(e instanceof Error ? e.message : "Couldn't create the game", "err");
+      // a 403 (key changed) re-locks the page via VaultGate
+      if (!(e instanceof ApiError && e.status === 403)) toast(e instanceof Error ? e.message : "Couldn't create the game", "err");
       return false;
     }
   }
@@ -251,15 +194,15 @@ function Sheet({ sheetKey, onLocked }: { sheetKey: string; onLocked: () => void 
     <div className="space-y-6">
       <div className="rise flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="eyebrow !text-led">● Team Sheet</div>
+          <div className="eyebrow !text-led">● Dugout</div>
           <h1 className="display mt-2 text-6xl sm:text-7xl">Paste. Check. Collect.</h1>
           <p className="mt-2 max-w-xl text-chalk-dim">
             Paste your game posts from WhatsApp, one at a time or all together. Each game becomes a card you can tweak before it goes live.
           </p>
         </div>
-        <button className="btn btn-ghost btn-sm self-start sm:self-auto" onClick={onLocked}>
-          🔒 Lock
-        </button>
+        <div className="self-start sm:self-auto">
+          <LockButton />
+        </div>
       </div>
 
       <section className="slab p-5">
@@ -294,8 +237,8 @@ function Sheet({ sheetKey, onLocked }: { sheetKey: string; onLocked: () => void 
             </button>
           )}
           {done > 0 && (
-            <Link href="/khata" className="btn btn-wa btn-sm">
-              📤 Send bills from Khata
+            <Link href="/scorebook" className="btn btn-wa btn-sm">
+              📤 Send bills from Scorebook
             </Link>
           )}
           <span className="text-sm text-muted">Drafts are saved in this browser until you create or remove them.</span>

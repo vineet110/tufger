@@ -35,6 +35,25 @@ export function setToken(token: string | null) {
   } catch {}
 }
 
+const VAULT_KEY = "tufger.key";
+
+/** The Tufger key that unlocks Dugout and Scorebook; kept for this browser tab only. */
+export function getVaultKey(): string | null {
+  try {
+    return sessionStorage.getItem(VAULT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setVaultKey(key: string | null) {
+  try {
+    if (key) sessionStorage.setItem(VAULT_KEY, key);
+    else sessionStorage.removeItem(VAULT_KEY);
+  } catch {}
+  if (!key) window.dispatchEvent(new Event("tufger:locked"));
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -48,6 +67,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   const token = getToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
+  const vaultKey = getVaultKey();
+  if (vaultKey && !headers.has("X-Tufger-Key")) headers.set("X-Tufger-Key", vaultKey);
   if (init.body && !(init.body instanceof FormData)) headers.set("Content-Type", "application/json");
 
   let res: Response;
@@ -66,6 +87,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       setToken(null);
       window.dispatchEvent(new Event("tufger:logout"));
     }
+    if (res.status === 403 && vaultKey) setVaultKey(null); // key changed on the server
     throw new ApiError(res.status, message);
   }
   return res.json() as Promise<T>;
@@ -143,13 +165,11 @@ export const api = {
   claim: (slug: string, entryId: number, utr: string) =>
     request<PublicBooking>(`/public/b/${slug}/claim`, json("POST", { entry_id: entryId, utr })),
 
-  // Team Sheet also needs the Tufger key on every call
-  sheetUnlock: (key: string) => request<{ ok: true }>("/teamsheet/unlock", { method: "POST", headers: { "X-Tufger-Key": key } }),
-  sheetCreateGame: (key: string, game: SheetGameIn) =>
-    request<{ id: number; slug: string; total_amount: number; players: number }>("/teamsheet/games", {
-      ...json("POST", game),
-      headers: { "X-Tufger-Key": key },
-    }),
+  // Dugout and Scorebook calls carry the Tufger key automatically once unlocked
+  unlock: (key: string) => request<{ ok: true }>("/auth/unlock", { method: "POST", headers: { "X-Tufger-Key": key } }),
+  createDugoutGame: (game: SheetGameIn) =>
+    request<{ id: number; slug: string; total_amount: number; players: number }>("/teamsheet/games", json("POST", game)),
+  setPhone: (playerId: number, phone: string) => request<{ id: number; phone: string }>(`/players/${playerId}/phone`, json("PUT", { phone })),
 };
 
 export interface SheetGameIn {

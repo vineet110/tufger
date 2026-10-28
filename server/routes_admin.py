@@ -5,10 +5,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 import schemas
-from auth import check_passcode, issue_token, require_admin
+from auth import check_passcode, issue_token, require_admin, require_key
 from db import get_db
 from models import Booking, Entry, Ground, Player, utcnow
-from roster import parse_sheet
+from roster import normalize_phone, parse_sheet
 from services import (
     booking_detail,
     booking_summary,
@@ -38,6 +38,27 @@ def login(body: schemas.LoginIn):
 @router.get("/auth/me")
 def me():
     return {"ok": True}
+
+
+@router.post("/auth/unlock", dependencies=[Depends(require_key)])
+def unlock():
+    """Checks the Tufger key that opens Dugout and Scorebook."""
+    return {"ok": True}
+
+
+@router.put("/players/{player_id}/phone")
+def set_phone(player_id: int, body: schemas.PhoneIn, db: Session = Depends(get_db)):
+    """Save a WhatsApp number from a booking (no Tufger key needed for this one field)."""
+    player = db.get(Player, player_id) or _404("Player")
+    phone = normalize_phone(body.phone)
+    if not phone:
+        raise HTTPException(400, "Enter a 10-digit mobile number")
+    other = db.scalar(select(Player).where(Player.phone == phone))
+    if other and other.id != player.id:
+        raise HTTPException(409, f"That number is already saved for {other.name}")
+    player.phone = phone
+    db.commit()
+    return {"id": player.id, "phone": phone}
 
 
 # ---------- settings ----------

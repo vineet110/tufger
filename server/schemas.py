@@ -282,3 +282,7 @@ class SheetGameOut(BaseModel):
     slug: str
     total_amount: int
     players: int
+
+
+class PhoneIn(BaseModel):
+    phone: str = Field(min_length=10, max_length=20)
