@@ -2,9 +2,10 @@ import secrets
 from datetime import date, datetime, time, timezone
 
 from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, String, Text, Time
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from db import Base
+from roster import name_key
 
 
 def utcnow() -> datetime:
@@ -95,12 +96,16 @@ class Ground(Base):
 
 class Player(Base):
     __tablename__ = "players"
-    # the same person can play for two hosts, so a number is unique per host only
-    __table_args__ = (Index("ux_players_host_phone", "host_id", "phone", unique=True),)
+    # the same person can play for two hosts, so a number or a name is unique per host only
+    __table_args__ = (
+        Index("ux_players_host_phone", "host_id", "phone", unique=True),
+        Index("ux_players_host_name", "host_id", "name_key", unique=True),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     host_id: Mapped[int | None] = mapped_column(ForeignKey("hosts.id", ondelete="CASCADE"), index=True, nullable=True)
     name: Mapped[str] = mapped_column(String(120))
+    name_key: Mapped[str] = mapped_column(String(400))  # kept in step with name, see set_name
     phone: Mapped[str | None] = mapped_column(String(15), nullable=True)
     archived: Mapped[bool] = mapped_column(Boolean, default=False)  # hidden from the khata list
     pay_slug: Mapped[str | None] = mapped_column(String(16), unique=True, nullable=True)  # personal bill link
@@ -111,6 +116,11 @@ class Player(Base):
     txns: Mapped[list["LedgerTxn"]] = relationship(
         back_populates="player", cascade="all, delete-orphan", order_by="LedgerTxn.created_at"
     )
+
+    @validates("name")
+    def set_name(self, _key: str, value: str) -> str:
+        self.name_key = name_key(value)
+        return value
 
 
 class LedgerTxn(Base):

@@ -16,8 +16,9 @@ from services import (
     booking_summary,
     get_app_settings,
     log,
-    resolve_player,
+    resolve_roster,
 )
+from routes_contacts import read_upload
 from split import split_amount
 
 router = APIRouter(dependencies=[Depends(current_host)])
@@ -115,17 +116,7 @@ def delete_ground(ground_id: int, host: Host = Depends(current_host), db: Sessio
 
 @router.post("/roster/upload")
 async def upload_roster(file: UploadFile = File(...)):
-    name = (file.filename or "").lower()
-    if not name.endswith((".xlsx", ".xlsm", ".csv", ".txt")):
-        raise HTTPException(400, "Upload an .xlsx or .csv file")
-    content = await file.read()
-    if len(content) > 2_000_000:
-        raise HTTPException(400, "File too large (max 2 MB)")
-    try:
-        players = parse_sheet(name, content)
-    except Exception:
-        raise HTTPException(400, "Couldn't read that file. Is it a valid Excel/CSV?")
-    return {"players": players}
+    return {"players": await read_upload(file, parse_sheet)}
 
 
 # ---------- bookings ----------
@@ -153,7 +144,9 @@ def create_booking(body: schemas.BookingIn, host: Host = Depends(current_host), 
     total_amount = base_amount - body.discount
     if total_amount <= 0:
         raise HTTPException(400, "The discount can't be more than the ground charges")
-    amounts = split_amount(total_amount, [p.amount for p in roster], body.round_to)
+    # resolved first: two rows for one person must not count as two shares
+    squad = resolve_roster(db, host.id, roster)
+    amounts = split_amount(total_amount, [row.amount for _, row in squad], body.round_to)
 
     booking = Booking(
         host_id=host.id,
@@ -175,12 +168,7 @@ def create_booking(body: schemas.BookingIn, host: Host = Depends(current_host), 
     db.add(booking)
     db.flush()
 
-    seen: set[int] = set()
-    for position, (p, amount) in enumerate(zip(roster, amounts)):
-        player = resolve_player(db, host.id, p.name, p.phone)
-        if player.id in seen:
-            continue
-        seen.add(player.id)
+    for position, ((player, _), amount) in enumerate(zip(squad, amounts)):
         is_org = body.include_organizer and position == 0
         db.add(Entry(
             booking_id=booking.id, player_id=player.id, position=position, amount=amount,
@@ -189,7 +177,7 @@ def create_booking(body: schemas.BookingIn, host: Host = Depends(current_host), 
         ))
     rate = f"{'weekend' if body.is_weekend else 'weekday'} rate ₹{body.rate_per_hour}/hr"
     off = f", ₹{body.discount} discount" if body.discount else ""
-    log(db, booking, "created", f"Booking created with {len(seen)} players, ₹{total_amount} total ({rate}{off})")
+    log(db, booking, "created", f"Booking created with {len(squad)} players, ₹{total_amount} total ({rate}{off})")
     db.commit()
     return _load(db, host, booking.id)
 
@@ -235,8 +223,7 @@ def add_players(booking_id: int, body: schemas.AddPlayersIn, host: Host = Depend
     existing = {e.player_id for e in booking.entries}
     position = max((e.position for e in booking.entries), default=-1) + 1
     added = []
-    for p in body.players:
-        player = resolve_player(db, host.id, p.name, p.phone)
+    for player, p in resolve_roster(db, host.id, body.players):
         if player.id in existing:
             continue
         existing.add(player.id)

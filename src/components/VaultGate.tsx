@@ -95,17 +95,26 @@ function Unlock({ title, blurb, hasPassword, onOpen }: { title: string; blurb: s
 }
 
 /** What a normal host sees instead of a premium page. */
-export function Upgrade({ title, name }: { title: string; name: string }) {
-  const msg = encodeURIComponent(`Hi! I'm ${name} on Tufger. I'd like to upgrade to Premium for Dugout and Scorebook.`);
+export function Upgrade({
+  title,
+  name,
+  feature = "Dugout and Scorebook",
+  blurb = "Dugout (paste WhatsApp game posts into pay links), Scorebook (every player's account, bills and backups) and bulk contact upload are part of Tufger Premium.",
+  onClose,
+}: {
+  title: string;
+  name: string;
+  feature?: string;
+  blurb?: string;
+  onClose?: () => void;
+}) {
+  const msg = encodeURIComponent(`Hi! I'm ${name} on Tufger. I'd like to upgrade to Premium for ${feature}.`);
   return (
-    <div className="grid place-items-center py-10">
+    <div className={onClose ? "" : "grid place-items-center py-10"}>
       <div className="board rise w-full max-w-lg p-7 pt-9 text-center">
         <div className="eyebrow !text-led">⭐ Premium</div>
         <div className="led dot mt-2 text-4xl uppercase">{title}</div>
-        <p className="mt-3 text-chalk-dim">
-          Dugout (paste WhatsApp game posts into pay links) and Scorebook (every player&apos;s account, bills and backups) are part of
-          Tufger Premium.
-        </p>
+        <p className="mt-3 text-chalk-dim">{blurb}</p>
         <p className="mt-2 text-sm text-muted">Message the Tufger admin to upgrade your account.</p>
         <div className="mt-6 grid gap-2 sm:grid-cols-2">
           <a className="btn btn-wa !py-3.5" href={`https://wa.me/${ADMIN_CONTACT.whatsapp}?text=${msg}`} target="_blank" rel="noreferrer">
@@ -116,6 +125,11 @@ export function Upgrade({ title, name }: { title: string; name: string }) {
           </a>
         </div>
         <p className="mt-3 font-[family-name:var(--font-jet)] text-xs text-muted">{ADMIN_CONTACT.email}</p>
+        {onClose && (
+          <button className="btn btn-ghost btn-sm mt-3" onClick={onClose}>
+            Not now
+          </button>
+        )}
       </div>
     </div>
   );

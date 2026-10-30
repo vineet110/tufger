@@ -74,9 +74,11 @@ Players then open `https://<your-project>.vercel.app/pay/<code>`.
 3. Claims land in the **Third umpire** queue on the booking page. Confirm or reject.
 4. **Dugout** (needs `TUFGER_KEY`): paste your WhatsApp game posts and each game becomes a card
    with its players, time and price per player. Adjust anything, then create them all at once.
-5. **Scorebook**: every player's account with history, payments and dues. **Send bills** opens each
+5. **Contacts**: your saved players. Premium hosts and the admin can upload Excel, CSV or a phone's .vcf in bulk. Each
+   name can only be saved once, so two Rahuls need two different names.
+6. **Scorebook**: every player's account with history, payments and dues. **Send bills** opens each
    player's WhatsApp chat with their total bill and a personal pay link. **Excel backup** downloads everything.
-6. **Nudge run** goes through the unpaid players one by one, opening WhatsApp with a personal
+7. **Nudge run** goes through the unpaid players one by one, opening WhatsApp with a personal
    reminder for each.
 
 ## Layout

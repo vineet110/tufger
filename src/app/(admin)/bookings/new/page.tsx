@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 import { isoDay, useToday } from "@/lib/client";
 import { endTime, fmtDate, fmtDuration, fmtTime, parseDate, rupees, sportEmoji, sportLabel } from "@/lib/format";
 import { mergeRosters, parseRoster, splitAmount } from "@/lib/roster";
-import type { Ground, RosterRow, Settings, Sport } from "@/lib/types";
+import type { Contact, Ground, RosterRow, Settings, Sport } from "@/lib/types";
 
 const DURATIONS = [60, 90, 120, 150, 180];
 const START_PRESETS = ["06:00", "07:00", "08:00", "19:00", "21:00", "23:00"];
@@ -24,6 +24,8 @@ const ROUNDING = [
   { v: 10, label: "₹10" },
   { v: 50, label: "₹50" },
 ];
+
+const rowKey = (r: RosterRow) => r.phone ?? r.name.toLowerCase();
 
 export default function NewBookingPage() {
   const router = useRouter();
@@ -58,6 +60,7 @@ export default function NewBookingPage() {
   const [removed, setRemoved] = useState<Set<string>>(new Set());
   const [custom, setCustom] = useState<Record<string, number>>({});
   const [uploading, setUploading] = useState(false);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [dayOverride, setDayOverride] = useState<"weekday" | "weekend" | null>(null);
@@ -78,6 +81,7 @@ export default function NewBookingPage() {
       else setAddingGround(true);
     });
     api.settings().then(setSettings);
+    api.contacts().then(setContacts, () => {});
   }, []);
 
   const ground = grounds?.find((g) => g.id === groundId) ?? null;
@@ -109,10 +113,9 @@ export default function NewBookingPage() {
   };
 
   const roster = useMemo(() => {
-    const key = (r: RosterRow) => r.phone ?? r.name.toLowerCase();
     return mergeRosters(parseRoster(paste), uploaded)
-      .filter((r) => !removed.has(key(r)))
-      .map((r) => ({ ...r, key: key(r), amount: custom[key(r)] ?? null }));
+      .filter((r) => !removed.has(rowKey(r)))
+      .map((r) => ({ ...r, key: rowKey(r), amount: custom[rowKey(r)] ?? null }));
   }, [paste, uploaded, removed, custom]);
 
   const headcount = roster.length + (includeMe ? 1 : 0);
@@ -124,6 +127,16 @@ export default function NewBookingPage() {
   const collectTotal = shares.reduce((a, b) => a + b, 0);
   const surplus = collectTotal - amount;
   const myShare = includeMe ? shares[0] : 0;
+
+  function addContact(c: Contact) {
+    const row = { name: c.name, phone: c.phone };
+    setUploaded((u) => mergeRosters(u, [row]));
+    setRemoved((s) => {
+      const next = new Set(s);
+      next.delete(rowKey(row));
+      return next;
+    });
+  }
 
   async function onUpload(file: File) {
     setUploading(true);
@@ -339,11 +352,13 @@ export default function NewBookingPage() {
               </div>
             </div>
 
+            <ContactPicker contacts={contacts} roster={roster} onPick={addContact} />
+
             {roster.length > 0 && (
               <div className="mt-4">
                 <div className="mb-2 flex items-center justify-between">
                   <span className="eyebrow">
-                    {roster.length} found{uploaded.length ? ` · ${uploaded.length} from file` : ""}
+                    {roster.length} found{uploaded.length ? ` · ${uploaded.length} added` : ""}
                   </span>
                   <span className="text-xs text-muted">Tap an amount to set a custom share</span>
                 </div>
@@ -584,6 +599,31 @@ function Row({ k, v, strong, warn }: { k: string; v: string; strong?: boolean; w
     <div className="flex justify-between gap-4">
       <dt className="text-chalk-dim">{k}</dt>
       <dd className={`text-right ${strong ? "led led-lime text-lg" : ""} ${warn ? "text-red" : ""}`}>{v}</dd>
+    </div>
+  );
+}
+
+function ContactPicker({ contacts, roster, onPick }: { contacts: Contact[]; roster: RosterRow[]; onPick: (c: Contact) => void }) {
+  const [q, setQ] = useState("");
+  if (!contacts.length) return null;
+  const needle = q.trim().toLowerCase();
+  const inSquad = new Set(roster.flatMap((r) => [r.phone, r.name.toLowerCase()]));
+  const matches = contacts
+    .filter((c) => !c.archived && !inSquad.has(c.name.toLowerCase()) && !(c.phone && inSquad.has(c.phone)))
+    .filter((c) => !needle || c.name.toLowerCase().includes(needle) || (c.phone ?? "").includes(needle))
+    .slice(0, 12);
+  return (
+    <div className="mt-4">
+      <input className="field" placeholder="Add from contacts: search a name or number…" value={q} onChange={(e) => setQ(e.target.value)} />
+      {matches.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {matches.map((c) => (
+            <button key={c.id} type="button" className="chip chip-pending !text-[0.72rem] hover:text-lime" onClick={() => onPick(c)}>
+              + {c.name}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -2,6 +2,8 @@ import type {
   Bill,
   BookingDetail,
   BookingSummary,
+  Contact,
+  ContactImport,
   Dashboard,
   Ground,
   HostAdminRow,
@@ -149,6 +151,18 @@ export const api = {
     const body = new FormData();
     body.append("file", file);
     return request<{ players: RosterRow[] }>("/roster/upload", { method: "POST", body });
+  },
+
+  contacts: () => request<Contact[]>("/contacts"),
+  addContact: (name: string, phone: string | null) => request<Contact>("/contacts", json("POST", { name, phone })),
+  updateContact: (id: number, patch: { name?: string; phone?: string | null; archived?: boolean }) =>
+    request<Contact>(`/contacts/${id}`, json("PATCH", patch)),
+  deleteContact: (id: number) => request<{ ok: true }>(`/contacts/${id}`, json("DELETE")),
+  /** Checks the file when dryRun is true; saves the good rows when it's false. */
+  uploadContacts: (file: File, dryRun: boolean) => {
+    const body = new FormData();
+    body.append("file", file);
+    return request<ContactImport>(`/contacts/upload?dry_run=${dryRun}`, { method: "POST", body });
   },
 
   bookings: (archived = false) => request<BookingSummary[]>(`/bookings?archived=${archived}`),

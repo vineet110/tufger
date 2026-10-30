@@ -212,6 +212,31 @@ class KhataPlayerPatch(BaseModel):
     archived: bool | None = None
 
 
+class ContactOut(BaseModel):
+    id: int
+    name: str
+    phone: str | None
+    archived: bool
+    games: int
+    has_history: bool
+
+
+class ContactIssue(BaseModel):
+    line: int  # row in the file (card number for a .vcf)
+    name: str
+    phone: str
+    reason: str
+
+
+class ContactImportOut(BaseModel):
+    dry_run: bool
+    rows: int
+    added: int
+    filled: int  # saved contacts that had no number and got one from the file
+    skipped: int  # already saved
+    rejected: list[ContactIssue]
+
+
 class KhataMoneyIn(BaseModel):
     amount: int = Field(gt=0)
     note: str = Field(default="", max_length=200)

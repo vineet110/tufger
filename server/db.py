@@ -1,9 +1,10 @@
 from collections.abc import Iterator
 
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import Connection, create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from config import get_settings
+from roster import name_key
 
 settings = get_settings()
 _url = settings.sqlalchemy_url
@@ -39,6 +40,7 @@ _ADDED_COLUMNS = {
         "archived": "BOOLEAN NOT NULL DEFAULT {false}",
         "pay_slug": "VARCHAR(16)",
         "host_id": "INTEGER",
+        "name_key": "VARCHAR(400)",
     },
     "hosts": {
         "passcode_hash": "VARCHAR(200)",
@@ -58,8 +60,38 @@ _ADDED_INDEXES = [
     "CREATE INDEX IF NOT EXISTS ix_players_host_id ON players (host_id)",
     "CREATE UNIQUE INDEX IF NOT EXISTS ux_app_settings_host ON app_settings (host_id)",
     "CREATE UNIQUE INDEX IF NOT EXISTS ux_players_host_phone ON players (host_id, phone)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS ux_players_host_name ON players (host_id, name_key)",
     "CREATE UNIQUE INDEX IF NOT EXISTS ux_hosts_passcode_lookup ON hosts (passcode_lookup)",
 ]
+
+
+def _unique_player_names(conn: Connection) -> None:
+    """Fill in name_key for older players. Names became unique per host, so a later twin becomes "Rahul 2".
+
+    Twins are never merged: they may be two people, and each has their own money history.
+    """
+    if not conn.scalar(text("SELECT COUNT(*) FROM players WHERE name_key IS NULL")):
+        return
+    admin_id = conn.scalar(text("SELECT MIN(id) FROM hosts WHERE role = 'admin'"))  # owns the host-less rows, see adopt_orphans
+    rows = conn.execute(text("SELECT id, host_id, name, name_key FROM players ORDER BY id")).all()
+    owner = lambda row: row.host_id if row.host_id is not None else admin_id  # noqa: E731
+    settled = {(owner(row), row.name_key) for row in rows if row.name_key is not None}
+    # every name in use is off limits, so a new "Rahul 2" never pushes out a real Rahul 2
+    in_use = settled | {(owner(row), name_key(row.name)) for row in rows}
+    for row in rows:
+        if row.name_key is not None:
+            continue
+        name, suffix = row.name, 1
+        if (owner(row), name_key(name)) in settled:
+            while (owner(row), name_key(name)) in in_use:
+                suffix += 1
+                name = f"{' '.join(row.name.split())[:112]} {suffix}"
+        settled.add((owner(row), name_key(name)))
+        in_use.add((owner(row), name_key(name)))
+        conn.execute(
+            text("UPDATE players SET name = :name, name_key = :key WHERE id = :id"),
+            {"name": name, "key": name_key(name), "id": row.id},
+        )
 
 
 def migrate() -> None:
@@ -80,6 +112,7 @@ def migrate() -> None:
             conn.execute(text(
                 "SELECT setval('app_settings_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM app_settings), 1))"
             ))
+        _unique_player_names(conn)
         for ddl in _ADDED_INDEXES:
             conn.execute(text(ddl))
 

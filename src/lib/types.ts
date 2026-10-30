@@ -26,6 +26,24 @@ export interface RosterRow {
   amount?: number | null;
 }
 
+export interface Contact {
+  id: number;
+  name: string;
+  phone: string | null;
+  archived: boolean;
+  games: number;
+  has_history: boolean;
+}
+
+export interface ContactImport {
+  dry_run: boolean;
+  rows: number;
+  added: number;
+  filled: number;
+  skipped: number;
+  rejected: { line: number; name: string; phone: string; reason: string }[];
+}
+
 export interface Tally {
   target: number;
   collected: number;

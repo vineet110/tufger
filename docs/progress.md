@@ -72,6 +72,10 @@ npm run dev                 # Next on :3100 (ports 3000/8000 are taken by other 
   (`opengraph-image.tsx`).
 - **Booking control room:** scoreboard, pitch view, scorecard, Nudge run (one-tap WhatsApp per unpaid player),
   group status message, re-split (paid shares stay locked), add late players, activity log.
+- **Contacts** (every host; bulk upload is premium and admin only, locked with an upgrade popup for normal hosts; not
+  committed yet): `server/routes_contacts.py` on the same `players` table, so there is one list of people. Names are unique per host through `players.name_key` (`name_key()` in `server/roster.py`, set by
+  `Player.set_name`) and the `ux_players_host_name` index. On first start `_unique_player_names` in `server/db.py` renames
+  older twins to "Rahul 2" and never merges them. Tests: `.venv/Scripts/python -m pytest server/tests` (temp SQLite only).
 - **Dugout** (premium; was "Team Sheet"): paste WhatsApp game posts (one or many). Parser in `src/lib/teamsheet.ts`
   reads times, grounds, formats, guests (+1), "(100 paid)" and "140 each". Each game becomes an editable card with
   per-player amounts, phones and a custom message, then a booking.

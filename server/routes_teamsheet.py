@@ -11,7 +11,7 @@ import schemas
 from auth import require_key
 from db import get_db
 from models import Booking, Entry, Ground, Host, utcnow
-from services import log, resolve_player
+from services import log, resolve_roster
 
 
 router = APIRouter(prefix="/teamsheet", tags=["dugout"], dependencies=[Depends(require_key)])
@@ -19,7 +19,8 @@ router = APIRouter(prefix="/teamsheet", tags=["dugout"], dependencies=[Depends(r
 
 @router.post("/games", response_model=schemas.SheetGameOut)
 def create_game(body: schemas.SheetGameIn, host: Host = Depends(require_key), db: Session = Depends(get_db)):
-    total = sum(p.amount for p in body.players)
+    squad = resolve_roster(db, host.id, body.players, keep_name=True)
+    total = sum(p.amount for _, p in squad)
     if total <= 0:
         raise HTTPException(400, "Set an amount for the players first")
 
@@ -42,18 +43,13 @@ def create_game(body: schemas.SheetGameIn, host: Host = Depends(require_key), db
     db.add(booking)
     db.flush()
 
-    seen: set[int] = set()
-    for position, p in enumerate(body.players):
-        player = resolve_player(db, host.id, p.name, p.phone, keep_name=True)
-        if player.id in seen:
-            continue
-        seen.add(player.id)
+    for position, (player, p) in enumerate(squad):
         paid = p.paid or p.is_organizer
         db.add(Entry(
             booking_id=booking.id, player_id=player.id, position=position, amount=p.amount,
             is_organizer=p.is_organizer, status="paid" if paid else "pending",
             paid_at=utcnow() if paid else None,
         ))
-    log(db, booking, "created", f"Created from Dugout with {len(seen)} players, ₹{total} total")
+    log(db, booking, "created", f"Created from Dugout with {len(squad)} players, ₹{total} total")
     db.commit()
-    return schemas.SheetGameOut(id=booking.id, slug=booking.slug, total_amount=total, players=len(seen))
+    return schemas.SheetGameOut(id=booking.id, slug=booking.slug, total_amount=total, players=len(squad))

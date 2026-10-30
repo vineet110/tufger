@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Popup } from "@/components/Popup";
 import { toast } from "@/components/Toast";
 import { copyText } from "@/components/Toast";
 import { api, type HostAdminResult, setVaultKey } from "@/lib/api";
@@ -21,25 +22,25 @@ function askPasscode(who: string): string | null | undefined {
 export function AdminPanel() {
   const [hosts, setHosts] = useState<HostAdminRow[] | null>(null);
   const [revealed, setRevealed] = useState<{ who: string; code: string } | null>(null);
-  const [adminSecret, setAdminSecret] = useState(""); // admin passcode or Tufger key, for credential changes
-  const needConfirm = () => {
-    if (adminSecret) return false;
-    toast("First confirm it's you: enter your passcode or the Tufger key at the top of Hosts", "err");
-    return true;
-  };
+  const [asking, setAsking] = useState<Confirming | null>(null); // a credential change waiting for the admin's passcode or Tufger key
   const load = () => api.hosts().then(setHosts, (e) => toast(e.message, "err"));
   useEffect(() => {
     load();
   }, []);
 
   async function update(h: HostAdminRow, patch: Parameters<typeof api.updateHost>[1], ok: string) {
-    const sensitive = patch.password || patch.passcode !== undefined || patch.new_passcode || patch.role === "premium";
-    if (sensitive && needConfirm()) return;
-    try {
-      const row: HostAdminResult = await api.updateHost(h.id, sensitive ? { ...patch, confirm: adminSecret } : patch);
+    const send = async (secret?: string) => {
+      const row: HostAdminResult = await api.updateHost(h.id, secret ? { ...patch, confirm: secret } : patch);
       setHosts((list) => list?.map((x) => (x.id === row.id ? row : x)) ?? null);
       if (row.passcode) setRevealed({ who: `${row.display_name} (@${row.username})`, code: row.passcode });
       toast(ok);
+    };
+    if (patch.password || patch.passcode !== undefined || patch.new_passcode || patch.role === "premium") {
+      const what = patch.role === "premium" ? `Make @${h.username} premium` : patch.password ? `Reset @${h.username}'s password` : `New passcode for @${h.username}`;
+      return setAsking({ what, run: send });
+    }
+    try {
+      await send();
     } catch (e) {
       toast(e instanceof Error ? e.message : "Couldn't update", "err");
     }
@@ -59,21 +60,9 @@ export function AdminPanel() {
           </span>
         </div>
         <p className="mt-1 text-sm text-muted">
-          Hosts sign up from the Pavilion page. Make someone <b className="text-led">premium</b> to give them Dugout, Scorebook (with the Tufger key)
-          and their own Pavilion passcode. Each passcode opens only that person&apos;s account.
+          Hosts sign up from the Pavilion page. Make someone <b className="text-led">premium</b> to give them Dugout, Scorebook (with the Tufger key),
+          bulk contact upload and their own Pavilion passcode. Each passcode opens only that person&apos;s account.
         </p>
-
-        <label className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-black/30 p-3 text-sm">
-          <span className="text-chalk-dim">🔐 Confirm it&apos;s you for upgrades, passcodes and password resets:</span>
-          <input
-            type="password"
-            className="field max-w-[240px] !py-2"
-            autoComplete="current-password"
-            placeholder="Your passcode or Tufger key"
-            value={adminSecret}
-            onChange={(e) => setAdminSecret(e.target.value)}
-          />
-        </label>
 
         {revealed && <PasscodeReveal who={revealed.who} code={revealed.code} onClose={() => setRevealed(null)} />}
 
@@ -158,15 +147,68 @@ export function AdminPanel() {
         </div>
 
         <CreateHost
-          confirm={adminSecret}
-          needConfirm={needConfirm}
+          ask={setAsking}
           onCreated={(row) => {
             setHosts((list) => [...(list ?? []), row]);
             if (row.passcode) setRevealed({ who: `${row.display_name} (@${row.username})`, code: row.passcode });
           }}
         />
       </section>
+
+      {asking && <ConfirmPopup {...asking} onClose={() => setAsking(null)} />}
     </>
+  );
+}
+
+type Confirming = { what: string; run: (secret: string) => Promise<void> };
+
+/** Runs the action with the admin's passcode or Tufger key. Stays open on a wrong one, so nothing happens until it's right. */
+function ConfirmPopup({ what, run, onClose }: Confirming & { onClose: () => void }) {
+  const [secret, setSecret] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      await run(secret);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't do that");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Popup onClose={onClose}>
+      <form onSubmit={submit} className="board rise p-7 pt-9">
+        <div className="eyebrow !text-led">🔐 Confirm it&apos;s you</div>
+        <div className="display mt-2 text-3xl break-words">{what}</div>
+        <label className="eyebrow label mt-5" htmlFor="admin-secret">
+          Your passcode or Tufger key
+        </label>
+        <input
+          id="admin-secret"
+          type="password"
+          autoFocus
+          className="field"
+          autoComplete="current-password"
+          value={secret}
+          onChange={(e) => setSecret(e.target.value)}
+        />
+        {error && <p className="mt-3 text-sm text-red">✕ {error}</p>}
+        <div className="mt-5 flex gap-2">
+          <button className="btn btn-lime" disabled={!secret || busy}>
+            {busy ? "Checking…" : "Confirm"}
+          </button>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>
+            Cancel
+          </button>
+        </div>
+      </form>
+    </Popup>
   );
 }
 
@@ -232,22 +274,13 @@ function PasscodeReveal({ who, code, onClose }: { who: string; code: string; onC
   );
 }
 
-function CreateHost({
-  confirm,
-  needConfirm,
-  onCreated,
-}: {
-  confirm: string;
-  needConfirm: () => boolean;
-  onCreated: (row: HostAdminResult) => void;
-}) {
+function CreateHost({ ask, onCreated }: { ask: (c: Confirming) => void; onCreated: (row: HostAdminResult) => void }) {
   const [open, setOpen] = useState(false);
   const [username, setUsername] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"premium" | "host">("premium");
   const [passcode, setPasscode] = useState("");
-  const [busy, setBusy] = useState(false);
 
   if (!open)
     return (
@@ -259,27 +292,24 @@ function CreateHost({
   return (
     <form
       className="mt-4 grid gap-3 rounded-xl border border-led/40 p-4 sm:grid-cols-2"
-      onSubmit={async (e) => {
+      onSubmit={(e) => {
         e.preventDefault();
         if (!/^[a-zA-Z0-9_.]{3,30}$/.test(username)) return toast("Username: 3–30 letters, numbers, _ or .", "err");
         if (password.length < 8) return toast("Password needs at least 8 characters", "err");
         if (role === "premium" && passcode && passcode.length < 6) return toast("Passcodes need at least 6 characters", "err");
-        if (needConfirm()) return;
-        setBusy(true);
-        try {
-          const row = await api.createHost({ username, display_name: name, password, role, passcode: role === "premium" ? passcode || null : null, confirm });
-          onCreated(row);
-          toast(`@${row.username} created. Share the username and password with them`);
-          setOpen(false);
-          setUsername("");
-          setName("");
-          setPassword("");
-          setPasscode("");
-        } catch (err) {
-          toast(err instanceof Error ? err.message : "Couldn't create the host", "err");
-        } finally {
-          setBusy(false);
-        }
+        ask({
+          what: `Create @${username}`,
+          run: async (secret) => {
+            const row = await api.createHost({ username, display_name: name, password, role, passcode: role === "premium" ? passcode || null : null, confirm: secret });
+            onCreated(row);
+            toast(`@${row.username} created. Share the username and password with them`);
+            setOpen(false);
+            setUsername("");
+            setName("");
+            setPassword("");
+            setPasscode("");
+          },
+        });
       }}
     >
       <input className="field" placeholder="Username" autoCapitalize="none" value={username} onChange={(e) => setUsername(e.target.value.replace(/\s/g, ""))} />
@@ -303,8 +333,8 @@ function CreateHost({
         />
       )}
       <div className="flex gap-2 sm:col-span-2">
-        <button className="btn btn-lime btn-sm" disabled={busy || !username || !name.trim() || !password}>
-          {busy ? "Creating…" : "Create host"}
+        <button className="btn btn-lime btn-sm" disabled={!username || !name.trim() || !password}>
+          Create host
         </button>
         <button type="button" className="btn btn-ghost btn-sm" onClick={() => setOpen(false)}>
           Cancel

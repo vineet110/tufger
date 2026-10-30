@@ -20,6 +20,12 @@ _Last updated: 2026-10-28_
 - [x] **Ground amount**: rate/hr × duration − discount, with an editable rate
 - [x] **Player list: paste**: paste a WhatsApp list in any shape (`1. Rahul 98765 43210`, `+91…`, emojis, dashes)
 - [x] **Player list: Excel / CSV upload** (.xlsx / .csv; finds the name and phone columns automatically)
+- [x] **Contact book** (`/contacts`, every host): saved players with search, edit, hide and delete, and an add-from-contacts
+      search on New booking
+- [x] **Bulk contact upload** (premium and admin; normal hosts see it locked with an upgrade message; .xlsx / .csv / .vcf, 5,000 rows): shows new, already saved and refused rows with the reason
+      before anything is saved
+- [x] **Unique names per host**: case, spacing and punctuation don't count, and the same name with a different number is
+      refused everywhere (contacts, bookings, Dugout, Scorebook). Numbers in a name are kept, so "Rahul 2" is a separate person
 - [x] **Total player count**: counted live from the pasted or uploaded list, duplicates removed
 - [x] **Split among players**: equal split, with optional rounding up to ₹5 / ₹10 / ₹50
 - [x] Per-player custom amount override (e.g. a guest pays less)

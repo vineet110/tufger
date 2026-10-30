@@ -1,9 +1,10 @@
-from sqlalchemy import func, select
+from fastapi import HTTPException
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 import schemas
 from models import AppSettings, Booking, Entry, Event, Player
-from roster import clean_name, normalize_phone
+from roster import clean_name, mobile_phone, name_key, normalize_phone
 
 
 def get_app_settings(db: Session, host_id: int) -> AppSettings:
@@ -23,9 +24,39 @@ def log(db: Session, booking: Booking, kind: str, message: str) -> None:
     db.add(Event(booking_id=booking.id, kind=kind, message=message))
 
 
-def resolve_player(db: Session, host_id: int, name: str, phone: str | None, keep_name: bool = False) -> Player:
-    """Find one of this host's players by phone (or by a unique name), else create one.
+class NameTaken(Exception):
+    """The name belongs to a saved player with a different number."""
 
+
+def clean_phone(raw: str | None) -> str | None:
+    if raw is None or not raw.strip():
+        return None
+    phone = mobile_phone(raw)
+    if not phone:
+        raise HTTPException(400, "Enter a 10-digit mobile number")
+    return phone
+
+
+def check_phone_free(db: Session, host_id: int, phone: str | None, player_id: int | None = None) -> None:
+    if not phone:
+        return
+    other = db.scalar(select(Player).where(Player.host_id == host_id, Player.phone == phone))
+    if other and other.id != player_id:
+        raise HTTPException(409, f"That number is already saved for {other.name}")
+
+
+def check_name_free(db: Session, host_id: int, name: str, player_id: int | None = None) -> None:
+    other = db.scalar(select(Player).where(Player.host_id == host_id, Player.name_key == name_key(name)))
+    if other and other.id != player_id:
+        hidden = " (hidden)" if other.archived else ""
+        raise HTTPException(409, f"{other.name}{hidden} is already saved. Use a different name, like {other.name} K")
+
+
+def resolve_player(db: Session, host_id: int, name: str, phone: str | None, keep_name: bool = False) -> Player:
+    """Find one of this host's players by phone, then by name, else create one.
+
+    The phone decides who someone is. A name on its own means the saved player with that name, but a
+    name with a different number is someone else, so it raises NameTaken rather than bill the wrong person.
     keep_name skips the name clean-up, for Team Sheet names like "Ganesh +1" or "Rishi (tt)".
     """
     phone = normalize_phone(phone)
@@ -34,21 +65,42 @@ def resolve_player(db: Session, host_id: int, name: str, phone: str | None, keep
         player = db.scalar(select(Player).where(Player.host_id == host_id, Player.phone == phone))
         if player:
             return player
-        # a known player who had no number yet: attach this one instead of creating a twin
-        unnumbered = db.scalars(
-            select(Player).where(Player.host_id == host_id, func.lower(Player.name) == name.lower(), Player.phone.is_(None))
-        ).all()
-        if len(unnumbered) == 1:
-            unnumbered[0].phone = phone
-            return unnumbered[0]
-    else:
-        matches = db.scalars(select(Player).where(Player.host_id == host_id, func.lower(Player.name) == name.lower())).all()
-        if len(matches) == 1:
-            return matches[0]
-    player = Player(host_id=host_id, name=name or "Player", phone=phone)
+    elif not name:
+        raise HTTPException(400, "Every player needs a name or a number")
+    made_up = phone and name in ("", f"Player {phone[-4:]}")  # no name given: two numbers can end alike
+    name = f"Player {phone[-4:]}" if made_up else name
+    named = db.scalar(select(Player).where(Player.host_id == host_id, Player.name_key == name_key(name)))
+    if named and made_up and named.phone:
+        named, name = None, f"Player {phone}"
+    if named:
+        if phone and named.phone:
+            raise NameTaken(f"{named.name} (saved with …{named.phone[-4:]})")
+        if phone:  # a known player who had no number yet
+            named.phone = phone
+            db.flush()
+        return named
+    player = Player(host_id=host_id, name=name, phone=phone)
     db.add(player)
     db.flush()
     return player
+
+
+def resolve_roster(db: Session, host_id: int, rows: list, keep_name: bool = False) -> list[tuple[Player, object]]:
+    """Every row's player, each player once. All name clashes are reported together, and nothing is saved."""
+    resolved: dict[int, tuple[Player, object]] = {}
+    clashes: list[str] = []
+    for row in rows:
+        try:
+            player = resolve_player(db, host_id, row.name, row.phone, keep_name=keep_name)
+        except NameTaken as clash:
+            clashes.append(str(clash))
+            continue
+        resolved.setdefault(player.id, (player, row))
+    if clashes:
+        raise HTTPException(
+            409, f"Name already taken: {', '.join(clashes)}. Use the saved number, or give this person a different name"
+        )
+    return list(resolved.values())
 
 
 def tally(entries: list[Entry]) -> schemas.Tally:

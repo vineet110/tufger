@@ -5,16 +5,23 @@ const PHONE = /(?:\+?\s?91[\s-]?|0)?[6-9](?:[\s-]?\d){9}/;
 const BULLET = /^\s*(?:\d{1,3}\s*[.)\-:]|[-•*▪➤>✅☑️🔹🔸]+)\s*/u;
 const HEADERISH = /^(players?|team|squad|list|names?|playing|confirmed|match|sunday|saturday)\b.*[:：]?$/i;
 
+/** Same rules as clean_name in server/roster.py: short numbers stay, because "Rahul 2" names a different person. */
 function cleanName(raw: string): string {
-  return raw
-    .replace(/[^\p{L}\s.'-]/gu, " ")
+  const name = raw
+    .normalize("NFKC")
+    .replace(/[\p{Cf}\uFE00-\uFE0F\u20E3]/gu, "")
+    .replace(/\d{5,}/g, " ")
+    .replace(/^\s*\d+[\s.)\-:]+/, " ")
+    .replace(/[^\p{L}\p{M}\p{N}\s.'-]/gu, " ")
     .replace(/\s+/g, " ")
     .trim()
     .replace(/^[.'-]+|[.'-]+$/g, "")
+    .trim()
     .split(" ")
     .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
     .join(" ")
     .slice(0, 120);
+  return /\p{L}/u.test(name) ? name : "";
 }
 
 /** Parse a WhatsApp-style list ("1. Rahul 98765 43210", "Amit 🏏", "+91…") into rows. */

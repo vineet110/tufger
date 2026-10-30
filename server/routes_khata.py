@@ -15,8 +15,7 @@ import schemas
 from auth import require_key
 from db import get_db
 from models import Entry, Host, LedgerTxn, Player, new_slug, utcnow
-from roster import normalize_phone
-from services import get_app_settings, log, pay_rating
+from services import check_name_free, check_phone_free, clean_phone, get_app_settings, log, pay_rating
 
 router = APIRouter(prefix="/khata", tags=["scorebook"], dependencies=[Depends(require_key)])
 public_router = APIRouter(prefix="/public/bill", tags=["public"])
@@ -133,23 +132,6 @@ def _detail(db: Session, host: Host, player_id: int) -> schemas.KhataDetail:
     return schemas.KhataDetail(**_row(p).model_dump(), pay_slug=slug, history=_history(p))
 
 
-def _clean_phone(raw: str | None) -> str | None:
-    if raw is None or not raw.strip():
-        return None
-    phone = normalize_phone(raw)
-    if not phone:
-        raise HTTPException(400, "Enter a 10-digit mobile number")
-    return phone
-
-
-def _check_phone_free(db: Session, host: Host, phone: str | None, player_id: int | None = None) -> None:
-    if not phone:
-        return
-    other = db.scalar(select(Player).where(Player.host_id == host.id, Player.phone == phone))
-    if other and other.id != player_id:
-        raise HTTPException(409, f"That number is already saved for {other.name}")
-
-
 def _bill_lines(p: Player) -> list[schemas.BillLine]:
     games = sorted(
         (e for e in _games(p) if e.status != "paid"),
@@ -164,6 +146,13 @@ def _bill_lines(p: Player) -> list[schemas.BillLine]:
     ]
 
 
+def _tidy_name(raw: str) -> str:
+    name = " ".join(raw.split())
+    if not name:
+        raise HTTPException(400, "Enter a name")
+    return name
+
+
 # ---------- organiser endpoints ----------
 
 @router.get("", response_model=list[schemas.KhataRow])
@@ -176,9 +165,11 @@ def khata(host: Host = Depends(require_key), db: Session = Depends(get_db)):
 
 @router.post("/players", response_model=schemas.KhataDetail)
 def add_player(body: schemas.KhataPlayerIn, host: Host = Depends(require_key), db: Session = Depends(get_db)):
-    phone = _clean_phone(body.phone)
-    _check_phone_free(db, host, phone)
-    p = Player(host_id=host.id, name=" ".join(body.name.split()), phone=phone)
+    phone = clean_phone(body.phone)
+    check_phone_free(db, host.id, phone)
+    name = _tidy_name(body.name)
+    check_name_free(db, host.id, name)
+    p = Player(host_id=host.id, name=name, phone=phone)
     db.add(p)
     db.commit()
     return _detail(db, host, p.id)
@@ -193,12 +184,14 @@ def player_detail(player_id: int, host: Host = Depends(require_key), db: Session
 def update_player(player_id: int, body: schemas.KhataPlayerPatch, host: Host = Depends(require_key), db: Session = Depends(get_db)):
     p = _load_player(db, host, player_id)
     changes = body.model_dump(exclude_unset=True)
-    if "phone" in changes:
-        phone = _clean_phone(body.phone)
-        _check_phone_free(db, host, phone, p.id)
+    if "phone" in changes and (body.phone or None) != p.phone:
+        phone = clean_phone(body.phone)
+        check_phone_free(db, host.id, phone, p.id)
         p.phone = phone
     if body.name is not None:
-        p.name = " ".join(body.name.split())
+        name = _tidy_name(body.name)
+        check_name_free(db, host.id, name, p.id)
+        p.name = name
     if body.archived is not None:
         p.archived = body.archived
     db.commit()

@@ -90,7 +90,7 @@ def require_site_admin(host: Host = Depends(current_host)) -> Host:
 
 def require_premium(host: Host = Depends(current_host)) -> Host:
     if host.role not in PREMIUM_ROLES:
-        raise HTTPException(402, "Dugout and Scorebook are premium features. Ask the Tufger admin to upgrade you")
+        raise HTTPException(402, "This is a Premium feature. Ask the Tufger admin to upgrade you")
     return host
 
 
