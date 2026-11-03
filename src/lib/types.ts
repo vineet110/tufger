@@ -114,7 +114,6 @@ export interface PublicBooking {
   upi_id: string;
   payee_name: string;
   pay_phone: string;
-  custom_total: boolean; // total_amount is the host's shown total
   tally: Tally;
   entries: { id: number; name: string; amount: number; status: EntryStatus; is_organizer: boolean }[];
 }

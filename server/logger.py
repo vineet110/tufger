@@ -12,6 +12,7 @@ from contextvars import ContextVar
 from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI, Request
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import delete, insert
 
 from config import ini
@@ -34,6 +35,11 @@ def set_host(host_id: int) -> None:
     req = _req.get()
     if req is not None:
         req["host"] = host_id
+
+
+def client_ip(forwarded_for: str | None, fallback: str | None) -> str:
+    """The caller's address: first x-forwarded-for hop (Vercel sets it), else the socket peer."""
+    return ((forwarded_for or "").split(",")[0].strip() or fallback or "unknown")[:64]
 
 
 def _level(name: str, default: int) -> int:
@@ -151,8 +157,7 @@ def install_request_logging(app: FastAPI, prefix: str = "") -> None:
         token = _req.set(req)
         start = time.perf_counter()
         path = request.url.path
-        forwarded = request.headers.get("x-forwarded-for", "")
-        ip = (forwarded.split(",")[0].strip() or (request.client.host if request.client else ""))[:64]
+        ip = client_ip(request.headers.get("x-forwarded-for"), request.client.host if request.client else None)
         extra = {"method": request.method, "path": path, "ip": ip}
         try:
             response = await call_next(request)
@@ -166,8 +171,9 @@ def install_request_logging(app: FastAPI, prefix: str = "") -> None:
                 status = response.status_code
                 level = (
                     logging.ERROR if status >= 500
-                    else logging.WARNING if status >= 400
+                    # reads that don't crash are DEBUG: an open pay page on a deleted booking 404s every 15 s
                     else logging.DEBUG if quiet_gets and request.method in ("GET", "HEAD", "OPTIONS")
+                    else logging.WARNING if status >= 400
                     else logging.INFO
                 )
                 log.log(level, "%s %s %s %sms", request.method, path, status, ms, extra={**extra, "status": status, "duration_ms": ms})
@@ -175,4 +181,5 @@ def install_request_logging(app: FastAPI, prefix: str = "") -> None:
             return response
         finally:
             _req.reset(token)
-            _write(req["rows"])
+            if req["rows"]:
+                await run_in_threadpool(_write, req["rows"])  # blocking DB call: keep it off the event loop

@@ -29,8 +29,10 @@ def _public(db: Session, booking: Booking) -> schemas.PublicBooking:
     counts = tally(booking.entries)
     # premium "shown total": players see this instead of the real ground amount and discount
     shown = booking.display_total if booking.display_total and booking.host and booking.host.role in PREMIUM_ROLES else None
-    if shown:
-        counts.target = shown
+    if shown and counts.target:
+        # scale the money so the board still balances: everyone paid = shown total collected
+        scale = shown / counts.target
+        counts.target, counts.collected, counts.claimed = shown, round(counts.collected * scale), round(counts.claimed * scale)
     return schemas.PublicBooking(
         slug=booking.slug,
         ground_name=booking.ground_name,
@@ -48,7 +50,6 @@ def _public(db: Session, booking: Booking) -> schemas.PublicBooking:
         upi_id=s.upi_id,
         payee_name=s.payee_name or s.organizer_name,
         pay_phone=s.pay_phone,
-        custom_total=bool(shown),
         tally=counts,
         entries=[
             schemas.PublicEntry(id=e.id, name=e.player.name, amount=e.amount, status=e.status, is_organizer=e.is_organizer)

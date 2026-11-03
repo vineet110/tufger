@@ -1,5 +1,7 @@
 """Site admin only: browse the saved app logs (see logger.py)."""
 
+from datetime import timezone
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
@@ -29,8 +31,11 @@ def list_logs(
     if level in LEVELS and level != "DEBUG":
         query = query.where(AppLog.level.in_(LEVELS[LEVELS.index(level):]))
     if q.strip():
-        like = f"%{q.strip()}%"
-        query = query.where(or_(AppLog.message.ilike(like), AppLog.path.ilike(like), AppLog.request_id == q.strip()))
+        text = q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")  # search literally
+        like = f"%{text}%"
+        query = query.where(or_(
+            AppLog.message.ilike(like, escape="\\"), AppLog.path.ilike(like, escape="\\"), AppLog.request_id == q.strip(),
+        ))
     if host.strip():
         h = db.scalar(select(Host).where(Host.username == host.strip().lower().lstrip("@")))
         query = query.where(AppLog.host_id == (h.id if h else -1))
@@ -38,9 +43,16 @@ def list_logs(
         query = query.where(AppLog.id < before)
     rows = db.scalars(query).all()
     return schemas.LogPage(
-        rows=[schemas.LogRow.model_validate(r, from_attributes=True) for r in rows],
+        rows=[_row(r) for r in rows],
         next_before=rows[-1].id if len(rows) == limit else None,
     )
+
+
+def _row(r: AppLog) -> schemas.LogRow:
+    row = schemas.LogRow.model_validate(r, from_attributes=True)
+    if row.created_at.tzinfo is None:  # SQLite drops the zone; these are always UTC
+        row.created_at = row.created_at.replace(tzinfo=timezone.utc)
+    return row
 
 
 @router.delete("")

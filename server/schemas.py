@@ -167,7 +167,6 @@ class PublicBooking(BaseModel):
     upi_id: str
     payee_name: str
     pay_phone: str
-    custom_total: bool  # total_amount is the host's shown total, not the sum of shares
     tally: Tally
     entries: list[PublicEntry]
 

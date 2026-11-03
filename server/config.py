@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     database_url: str = ""
     admin_passcode: str = "tufger"
     secret_key: str = "dev-secret-change-me"
+    # legacy: TOKEN_TTL_DAYS env var, from before config.ini. Still honoured; config.ini → [auth] is the new home.
+    token_ttl_days: int | None = None
     # Second key that unlocks Team Sheet; empty = Team Sheet disabled
     tufger_key: str = ""
 

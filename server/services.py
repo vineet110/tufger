@@ -137,7 +137,8 @@ def booking_summary(b: Booking) -> schemas.BookingSummary:
         base_amount=b.base_amount or b.total_amount + b.discount,
         discount=b.discount,
         discount_note=b.discount_note,
-        display_total=b.display_total,
+        # only premium hosts get a shown total; a downgraded host's old value is ignored everywhere
+        display_total=b.display_total if b.host and b.host.role in ("admin", "premium") else None,
         archived=b.archived,
         created_at=b.created_at,
         tally=tally(b.entries),

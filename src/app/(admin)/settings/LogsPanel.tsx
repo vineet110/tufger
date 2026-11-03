@@ -73,9 +73,13 @@ export function LogsPanel({ hosts }: { hosts: HostAdminRow[] | null }) {
             className="text-chalk-dim underline hover:text-red"
             onClick={async () => {
               if (!confirm("Delete every saved log line?")) return;
-              const { deleted } = await api.clearLogs();
-              toast(`${deleted} log lines deleted`);
-              load();
+              try {
+                const { deleted } = await api.clearLogs();
+                toast(`${deleted} log lines deleted`);
+                load();
+              } catch (e) {
+                toast(e instanceof Error ? e.message : "Couldn't clear logs", "err");
+              }
             }}
           >
             Clear all

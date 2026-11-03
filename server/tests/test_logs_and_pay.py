@@ -91,12 +91,12 @@ def test_premium_shown_total(client, host, ground):
     assert res.json()["total_amount"] == 900  # the real total is untouched
     pub = client.get(f"/public/b/{b['slug']}").json()
     assert pub["total_amount"] == 1200 and pub["tally"]["target"] == 1200
-    assert pub["discount"] == 0 and pub["custom_total"] is True
+    assert pub["discount"] == 0
     assert sum(e["amount"] for e in pub["entries"]) == 900  # shares stay as they were
 
     client.patch(f"/bookings/{b['id']}", headers=host, json={"display_total": None})
     pub = client.get(f"/public/b/{b['slug']}").json()
-    assert pub["total_amount"] == 900 and pub["discount"] == 100 and pub["custom_total"] is False
+    assert pub["total_amount"] == 900 and pub["discount"] == 100
 
 
 def test_shown_total_is_premium_only(client, host, ground):
@@ -111,6 +111,10 @@ def test_shown_total_stops_when_host_is_downgraded(client, host, ground):
     assert client.get(f"/public/b/{b['slug']}").json()["total_amount"] == 1500
     _role(client, host, "host")
     assert client.get(f"/public/b/{b['slug']}").json()["total_amount"] == 1000
+    # the host's own view (and so the WhatsApp status message) forgets it too, and they can still clear it
+    assert client.get(f"/bookings/{b['id']}", headers=host).json()["display_total"] is None
+    assert client.patch(f"/bookings/{b['id']}", headers=host, json={"display_total": None}).status_code == 200
+    assert client.patch(f"/bookings/{b['id']}", headers=host, json={"display_total": 10}).status_code == 402
 
 
 # ---------- pay-to number ----------
@@ -124,3 +128,51 @@ def test_pay_phone(client, host, ground):
     assert client.get(f"/public/b/{b['slug']}").json()["pay_phone"] == "9876543210"
     cleared = client.put("/settings", headers=host, json={**saved, "pay_phone": ""}).json()
     assert cleared["pay_phone"] == ""
+
+
+def test_shown_total_scoreboard_balances(client, host, ground):
+    _role(client, host, "premium")
+    b = _booking(client, host, ground, display_total=1500)  # 4 shares of 250
+    entries = client.get(f"/bookings/{b['id']}", headers=host).json()["entries"]
+    client.post(f"/bookings/{b['id']}/entries/{entries[0]['id']}/status", headers=host, json={"status": "paid"})
+    t = client.get(f"/public/b/{b['slug']}").json()["tally"]
+    assert t["target"] == 1500 and t["collected"] == 375  # a quarter of the shown total
+    for e in entries[1:]:
+        client.post(f"/bookings/{b['id']}/entries/{e['id']}/status", headers=host, json={"status": "paid"})
+    t = client.get(f"/public/b/{b['slug']}").json()["tally"]
+    assert t["collected"] == t["target"] == 1500
+
+
+def test_polling_404_is_not_saved(client):
+    for _ in range(3):
+        client.get("/public/b/no-such-slug")
+    rows = client.get("/admin/logs?q=no-such-slug", headers=_admin(client)).json()["rows"]
+    assert rows == []  # DEBUG, below db_level
+
+
+def test_log_search_is_literal_and_utc(client, host, ground):
+    _booking(client, host, ground)
+    admin = _admin(client)
+    rows = client.get("/admin/logs?q=created_", headers=admin).json()["rows"]
+    assert rows == []  # "_" is not a wildcard ("created:" would match "created_" otherwise)
+    row = client.get("/admin/logs?limit=1", headers=admin).json()["rows"][0]
+    assert row["created_at"].endswith(("+00:00", "Z"))
+
+
+def test_legacy_token_ttl_env(monkeypatch):
+    import importlib
+
+    import auth
+    import config
+
+    try:
+        monkeypatch.setenv("TOKEN_TTL_DAYS", "7")
+        config.get_settings.cache_clear()
+        assert importlib.reload(auth).TOKEN_TTL_DAYS == 7
+        monkeypatch.setenv("TUFGER_AUTH_TOKEN_TTL_DAYS", "3")
+        assert importlib.reload(auth).TOKEN_TTL_DAYS == 3
+    finally:
+        monkeypatch.delenv("TOKEN_TTL_DAYS")
+        monkeypatch.delenv("TUFGER_AUTH_TOKEN_TTL_DAYS")
+        config.get_settings.cache_clear()
+        importlib.reload(auth)

@@ -498,7 +498,10 @@ function MatchTools({
 /** Premium: the total players see on the pay page. Shares and the real ground amount don't change. */
 function ShownTotal({ b, act }: { b: BookingDetail; act: (p: Promise<BookingDetail>, ok?: string) => Promise<void> }) {
   const [value, setValue] = useState(b.display_total ? String(b.display_total) : "");
-  const next = Number(value) > 0 ? Math.round(Number(value)) : null;
+  const rounded = Math.round(Number(value));
+  const empty = value.trim() === "";
+  const invalid = !empty && !(rounded >= 1); // blank clears it; anything else must be at least ₹1
+  const next = empty ? null : rounded;
   return (
     <div className="mt-4 rounded-xl border border-led/30 bg-led/[0.04] p-3">
       <label className="eyebrow label !text-[0.7rem] !text-led">⭐ Total shown to players</label>
@@ -513,7 +516,7 @@ function ShownTotal({ b, act }: { b: BookingDetail; act: (p: Promise<BookingDeta
         />
         <button
           className="btn btn-sm !py-3"
-          disabled={next === b.display_total}
+          disabled={invalid || next === b.display_total}
           onClick={() =>
             act(api.patchBooking(b.id, { display_total: next }), next ? `Players now see ${rupees(next)} as the total` : "Players see the real total again")
           }
@@ -521,6 +524,7 @@ function ShownTotal({ b, act }: { b: BookingDetail; act: (p: Promise<BookingDeta
           Save
         </button>
       </div>
+      {invalid && <p className="mt-1 text-xs text-red">Enter at least ₹1, or leave it empty to show the real total</p>}
       <p className="mt-1 text-xs text-muted">
         {b.display_total
           ? `Players see ${rupees(b.display_total)} instead of ${rupees(b.total_amount)}, and no discount line. Clear it to show the real total.`

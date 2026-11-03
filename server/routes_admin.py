@@ -27,6 +27,7 @@ BOOKING_LOAD = (
     selectinload(Booking.entries).selectinload(Entry.player),
     selectinload(Booking.events),
     selectinload(Booking.ground),
+    selectinload(Booking.host),
 )
 
 
@@ -131,7 +132,7 @@ def list_bookings(archived: bool = False, host: Host = Depends(current_host), db
     rows = db.scalars(
         select(Booking)
         .where(Booking.host_id == host.id, Booking.archived == archived)
-        .options(selectinload(Booking.entries), selectinload(Booking.ground))
+        .options(selectinload(Booking.entries), selectinload(Booking.ground), selectinload(Booking.host))
         .order_by(Booking.play_date.desc(), Booking.start_time.desc())
     ).all()
     return [booking_summary(b) for b in rows]
@@ -197,7 +198,7 @@ def get_booking(booking_id: int, host: Host = Depends(current_host), db: Session
 def patch_booking(booking_id: int, body: schemas.BookingPatch, host: Host = Depends(current_host), db: Session = Depends(get_db)):
     booking = _load_model(db, host, booking_id)
     changes = body.model_dump(exclude_unset=True)
-    if "display_total" in changes and host.role not in PREMIUM_ROLES:
+    if changes.get("display_total") is not None and host.role not in PREMIUM_ROLES:  # clearing is always allowed
         raise HTTPException(402, "Showing a custom total is a Premium feature. Ask the Tufger admin to upgrade you")
     for key, value in changes.items():
         setattr(booking, key, value)

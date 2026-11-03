@@ -3,6 +3,7 @@
 import base64
 import hashlib
 import hmac
+import os
 import secrets
 import time
 from datetime import datetime, timedelta, timezone
@@ -12,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from config import get_settings, ini
 from db import get_db
-from logger import get_logger, set_host
+from logger import client_ip, get_logger, set_host  # noqa: F401  (client_ip re-exported for routes)
 from models import Host, LoginThrottle, SiteConfig
 
 settings = get_settings()
@@ -20,7 +21,12 @@ log = get_logger(__name__)
 
 PBKDF2_ROUNDS = 200_000
 # tunable in config.ini → [auth]
-TOKEN_TTL_DAYS = ini().int("auth", "token_ttl_days", 30)
+# TUFGER_AUTH_TOKEN_TTL_DAYS env > old TOKEN_TTL_DAYS env > config.ini
+TOKEN_TTL_DAYS = (
+    settings.token_ttl_days
+    if settings.token_ttl_days and "TUFGER_AUTH_TOKEN_TTL_DAYS" not in os.environ
+    else ini().int("auth", "token_ttl_days", 30)
+)
 MAX_FAILED_LOGINS = ini().int("auth", "max_failed_logins", 5)
 LOCK_MINUTES = ini().int("auth", "lock_minutes", 10)
 NETWORK_MAX_FAILS = ini().int("auth", "network_max_fails", 10)  # per network address
@@ -139,10 +145,6 @@ def check_login(db: Session, host: Host | None, password: str, field: str = "pas
 
 
 # ---------- network throttle ----------
-
-def client_ip(forwarded_for: str | None, fallback: str | None) -> str:
-    return ((forwarded_for or "").split(",")[0].strip() or fallback or "unknown")[:64]
-
 
 def check_throttle(db: Session, ip: str) -> None:
     row = db.get(LoginThrottle, ip)
