@@ -91,6 +91,20 @@ export default function SettingsPage() {
               <p className="mt-1 text-xs text-red">That doesn&apos;t look like a UPI ID (it should look like name@bank)</p>
             )}
           </div>
+          <div className="sm:col-span-2">
+            <label className="eyebrow label">UPI number (optional)</label>
+            <input
+              className="field font-mono"
+              inputMode="tel"
+              value={s.pay_phone}
+              placeholder="98765 43210"
+              maxLength={20}
+              onChange={(e) => setS({ ...s, pay_phone: e.target.value })}
+            />
+            <p className="mt-1 text-xs text-muted">
+              The mobile number linked to your UPI. Players see it with a Copy button, for when the Pay button fails in their app.
+            </p>
+          </div>
         </div>
       </section>
 

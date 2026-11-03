@@ -2,24 +2,32 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
-import models  # noqa: F401  (registers tables)
-from db import Base, engine, migrate
-from routes_accounts import admin_router as site_admin_router, bootstrap, public_router as rules_router, router as accounts_router
-from routes_admin import router as host_router
-from routes_contacts import router as contacts_router
-from routes_khata import public_router as bill_router, router as khata_router
-from routes_public import router as public_router
-from routes_teamsheet import router as teamsheet_router
+from logger import get_logger, install_request_logging, prune_old_logs, setup_logging
+
+setup_logging()
+
+import models  # noqa: E402,F401  (registers tables)
+from db import Base, engine, migrate  # noqa: E402
+from routes_accounts import admin_router as site_admin_router, bootstrap, public_router as rules_router, router as accounts_router  # noqa: E402
+from routes_admin import router as host_router  # noqa: E402
+from routes_contacts import router as contacts_router  # noqa: E402
+from routes_logs import router as logs_router  # noqa: E402
+from routes_khata import public_router as bill_router, router as khata_router  # noqa: E402
+from routes_public import router as public_router  # noqa: E402
+from routes_teamsheet import router as teamsheet_router  # noqa: E402
 
 Base.metadata.create_all(engine)
 migrate()
 bootstrap()
+prune_old_logs()
+get_logger("startup").info("API started (%s)", engine.dialect.name)
 
 # Site and API share one domain: everything under /api/py is FastAPI.
 # Vercel routes it here in production; next.config.ts proxies it in local dev.
 api = FastAPI(title="Tufger API", version="0.2.0")
 api.include_router(accounts_router)
 api.include_router(site_admin_router)
+api.include_router(logs_router)
 api.include_router(public_router)
 api.include_router(rules_router)
 api.include_router(bill_router)
@@ -35,6 +43,7 @@ def duplicate_player(_request: Request, exc: IntegrityError):
     message = str(exc.orig)
     if "players" not in message or not ("name_key" in message or "phone" in message or "ux_players" in message):
         raise exc
+    get_logger("db").warning("Duplicate player refused: %s", message.splitlines()[0][:200])
     return JSONResponse({"detail": "That name or number is already saved. Refresh and try again"}, status_code=409)
 
 
@@ -45,3 +54,4 @@ def health():
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/api/py", api)
+install_request_logging(app, prefix="/api/py")

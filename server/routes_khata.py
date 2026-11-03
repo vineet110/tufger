@@ -324,7 +324,7 @@ def _public_bill(db: Session, p: Player) -> schemas.PublicBill:
     return schemas.PublicBill(
         host_username=p.host.username if p.host else "",
         name=p.name, organizer_name=s.organizer_name, upi_id=s.upi_id, payee_name=s.payee_name or s.organizer_name,
-        lines=_bill_lines(p), extra_due=_extra_due(p), due=row.bill_due, under_review=row.under_review,
+        pay_phone=s.pay_phone, lines=_bill_lines(p), extra_due=_extra_due(p), due=row.bill_due, under_review=row.under_review,
     )
 
 

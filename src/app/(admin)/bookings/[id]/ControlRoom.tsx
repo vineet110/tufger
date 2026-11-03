@@ -6,6 +6,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import { Pitch } from "@/components/Pitch";
 import { Scoreboard } from "@/components/Scoreboard";
 import { AddPhone } from "@/components/AddPhone";
+import { isPremium, useMe } from "@/components/AdminShell";
 import { copyText, toast } from "@/components/Toast";
 import { api } from "@/lib/api";
 import { endTime, fmtDate, fmtDuration, fmtTime, rupees, sportEmoji, timeAgo } from "@/lib/format";
@@ -450,6 +451,7 @@ function MatchTools({
   onDeleted: () => void;
 }) {
   const [total, setTotal] = useState(String(b.total_amount));
+  const { me } = useMe();
   return (
     <section className="slab p-5">
       <h2 className="display text-2xl">Match tools</h2>
@@ -469,6 +471,7 @@ function MatchTools({
         </button>
       </div>
       <p className="mt-1 text-xs text-muted">Re-split keeps what&apos;s already paid and divides the rest equally among players who haven&apos;t paid.</p>
+      {isPremium(me) && <ShownTotal key={b.display_total ?? 0} b={b} act={act} />}
       <div className="mt-4 grid grid-cols-2 gap-2">
         <button className="btn btn-sm" onClick={() => copyText(groupMessage(b, upi), "Group message copied")}>
           Copy status msg
@@ -489,5 +492,44 @@ function MatchTools({
         </button>
       </div>
     </section>
+  );
+}
+
+/** Premium: the total players see on the pay page. Shares and the real ground amount don't change. */
+function ShownTotal({ b, act }: { b: BookingDetail; act: (p: Promise<BookingDetail>, ok?: string) => Promise<void> }) {
+  const [value, setValue] = useState(b.display_total ? String(b.display_total) : "");
+  const rounded = Math.round(Number(value));
+  const empty = value.trim() === "";
+  const invalid = !empty && !(rounded >= 1); // blank clears it; anything else must be at least ₹1
+  const next = empty ? null : rounded;
+  return (
+    <div className="mt-4 rounded-xl border border-led/30 bg-led/[0.04] p-3">
+      <label className="eyebrow label !text-[0.7rem] !text-led">⭐ Total shown to players</label>
+      <div className="flex items-end gap-2">
+        <input
+          type="number"
+          min={1}
+          className="field !py-2 font-mono"
+          placeholder={`${b.total_amount} (real total)`}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+        />
+        <button
+          className="btn btn-sm !py-3"
+          disabled={invalid || next === b.display_total}
+          onClick={() =>
+            act(api.patchBooking(b.id, { display_total: next }), next ? `Players now see ${rupees(next)} as the total` : "Players see the real total again")
+          }
+        >
+          Save
+        </button>
+      </div>
+      {invalid && <p className="mt-1 text-xs text-red">Enter at least ₹1, or leave it empty to show the real total</p>}
+      <p className="mt-1 text-xs text-muted">
+        {b.display_total
+          ? `Players see ${rupees(b.display_total)} instead of ${rupees(b.total_amount)}, and no discount line. Clear it to show the real total.`
+          : "Leave empty to show the real total. Each player's share stays the same either way."}
+      </p>
+    </div>
   );
 }

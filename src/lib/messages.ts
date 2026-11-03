@@ -66,8 +66,9 @@ export function groupMessage(b: BookingDetail, upi = ""): string {
     ...note,
     `${sportEmoji[b.sport]} *${b.ground_name}*`,
     `📅 ${fmtDate(b.play_date, { weekday: "long", day: "numeric", month: "short" })} · ${fmtTime(b.start_time)} (${fmtDuration(b.duration_min)})`,
-    ...(b.discount > 0 ? [`🏷️ ${rupees(b.discount)} discount applied${b.discount_note ? ` (${b.discount_note})` : ""}`] : []),
-    `🎯 Target ${rupees(b.tally.target)} · Collected ${rupees(b.tally.collected)}`,
+    // a premium host's shown total replaces the real target and hides the discount, same as on the pay page
+    ...(b.discount > 0 && !b.display_total ? [`🏷️ ${rupees(b.discount)} discount applied${b.discount_note ? ` (${b.discount_note})` : ""}`] : []),
+    `🎯 Target ${rupees(b.display_total ?? b.tally.target)} · Collected ${rupees(b.tally.collected)}`,
     "",
   ];
   if (pending.length) {

@@ -46,6 +46,25 @@ npm run dev                 # Next on :3100 (ports 3000/8000 are taken by other 
 
 **Vercel setting:** Functions region should be Singapore (`sin1`), same as Neon.
 
+### Tunables: `server/config.ini`
+
+Non-secret knobs (log levels, log retention, token lifetime, lockout limits). It's committed, so **no secrets in it**.
+Edit → push → Vercel redeploys. Any key can be overridden per environment with an env var
+`TUFGER_<SECTION>_<KEY>` (e.g. `TUFGER_LOGGING_LEVEL=DEBUG` in Vercel for one deploy). Read via `config.ini()`.
+
+### Logs
+
+`server/logger.py` → `get_logger(__name__)`. Every line goes to two places:
+
+1. **stdout** → Vercel dashboard → project → **Logs** (live, searchable, but Hobby keeps only ~1 hour).
+2. **Neon `app_logs` table** → **Settings → Logs** (admin only): filter by level, text, slug, request id or host, page back,
+   download. Rows older than `retention_days` are deleted on start-up.
+
+What's logged: one line per API call (successful GETs at DEBUG, so the 15 s pay-page polling doesn't fill the table),
+sign-ins, wrong passwords and lockouts, sign-ups, admin host changes, every booking activity event (created, claimed,
+paid, edited…) and crashes with tracebacks. Each request gets an id (Vercel's own `x-vercel-id` when present, returned as
+`x-request-id`) so the two log views can be matched. For long-term external storage you'd need Vercel Pro (log drains).
+
 ## Roles & security model
 
 | Role | Sign in | Gets |

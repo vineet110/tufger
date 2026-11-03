@@ -9,6 +9,7 @@ import type {
   HostAdminRow,
   KhataDetail,
   KhataRow,
+  LogPage,
   Me,
   PublicBill,
   PublicBooking,
@@ -113,6 +114,12 @@ export const api = {
 
   // site admin only
   hosts: () => request<HostAdminRow[]>("/admin/hosts"),
+  logs: (f: { level?: string; q?: string; host?: string; before?: number | null; limit?: number } = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(f).forEach(([k, v]) => v !== undefined && v !== null && v !== "" && qs.set(k, String(v)));
+    return request<LogPage>(`/admin/logs?${qs}`);
+  },
+  clearLogs: () => request<{ deleted: number }>("/admin/logs", { method: "DELETE" }),
   createHost: (body: {
     username: string;
     display_name: string;

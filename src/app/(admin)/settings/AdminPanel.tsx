@@ -6,6 +6,7 @@ import { toast } from "@/components/Toast";
 import { copyText } from "@/components/Toast";
 import { api, type HostAdminResult, setVaultKey } from "@/lib/api";
 import type { HostAdminRow } from "@/lib/types";
+import { LogsPanel } from "./LogsPanel";
 
 /** Site admin only: hosts, premium access and the Tufger key. */
 /** Ask for a passcode; empty means "generate one". Returns undefined when cancelled. */
@@ -154,6 +155,8 @@ export function AdminPanel() {
           }}
         />
       </section>
+
+      <LogsPanel hosts={hosts} />
 
       {asking && <ConfirmPopup {...asking} onClose={() => setAsking(null)} />}
     </>
