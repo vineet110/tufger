@@ -5,6 +5,7 @@ export interface Settings {
   organizer_name: string;
   upi_id: string;
   payee_name: string;
+  pay_phone: string; // UPI-linked mobile players can pay to; "" = not shown
   reminder_template: string;
   house_refunds: string; // one rule per line; "" = Tufger defaults
   house_last_minute: string;
@@ -69,6 +70,7 @@ export interface BookingSummary {
   base_amount: number;
   discount: number;
   discount_note: string;
+  display_total: number | null; // premium: total shown to players instead of the real one
   archived: boolean;
   created_at: string;
   tally: Tally;
@@ -111,6 +113,8 @@ export interface PublicBooking {
   organizer_name: string;
   upi_id: string;
   payee_name: string;
+  pay_phone: string;
+  custom_total: boolean; // total_amount is the host's shown total
   tally: Tally;
   entries: { id: number; name: string; amount: number; status: EntryStatus; is_organizer: boolean }[];
 }
@@ -176,6 +180,7 @@ export interface PublicBill {
   organizer_name: string;
   upi_id: string;
   payee_name: string;
+  pay_phone: string;
   lines: BillLine[];
   extra_due: number;
   due: number;
@@ -213,4 +218,26 @@ export interface PublicRules {
   host_name: string;
   refunds: string;
   last_minute: string;
+}
+
+export type LogLevel = "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
+
+export interface LogRow {
+  id: number;
+  created_at: string;
+  level: LogLevel;
+  logger: string;
+  message: string;
+  method: string;
+  path: string;
+  status: number | null;
+  duration_ms: number | null;
+  ip: string;
+  host_id: number | null;
+  request_id: string;
+}
+
+export interface LogPage {
+  rows: LogRow[];
+  next_before: number | null;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useCallback, useEffect, useState } from "react";
+import { PayManually } from "@/components/PayManually";
 import { ScanToPay } from "@/components/ScanToPay";
 import { SiteFooter } from "@/components/SiteFooter";
 import { Toaster, toast } from "@/components/Toast";
@@ -137,6 +138,7 @@ export function BillView({ params }: { params: Promise<{ slug: string }> }) {
               amountLine={rupees(b.due)}
               filename={`tufger-bill-${first.toLowerCase()}.png`}
             />
+            <PayManually upiId={b.upi_id} phone={b.pay_phone} amount={b.due} payee={b.payee_name} />
             <div className="chalk-rule my-6" />
             <div className="display text-2xl">{tapped ? "Done paying? 👇" : "Already paid?"}</div>
             <p className="mt-1 text-xs text-muted">Let {b.organizer_name} know so they can tick you off.</p>

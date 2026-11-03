@@ -35,6 +35,7 @@ _ADDED_COLUMNS = {
         "discount": "INTEGER NOT NULL DEFAULT 0",
         "discount_note": "VARCHAR(120) NOT NULL DEFAULT ''",
         "host_id": "INTEGER",
+        "display_total": "INTEGER",
     },
     "players": {
         "archived": "BOOLEAN NOT NULL DEFAULT {false}",
@@ -51,6 +52,7 @@ _ADDED_COLUMNS = {
         "host_id": "INTEGER",
         "house_refunds": "TEXT NOT NULL DEFAULT ''",
         "house_last_minute": "TEXT NOT NULL DEFAULT ''",
+        "pay_phone": "VARCHAR(20) NOT NULL DEFAULT ''",
     },
 }
 _ADDED_INDEXES = [

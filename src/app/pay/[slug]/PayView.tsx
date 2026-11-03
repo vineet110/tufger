@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useCallback, useEffect, useState } from "react";
+import { PayManually } from "@/components/PayManually";
 import { ScanToPay } from "@/components/ScanToPay";
 import { SiteFooter } from "@/components/SiteFooter";
 import { Scoreboard } from "@/components/Scoreboard";
@@ -245,6 +246,8 @@ function PayPanel({
             amountLine={rupees(entry.amount)}
             filename={`tufger-qr-${first.toLowerCase()}.png`}
           />
+
+          <PayManually upiId={b.upi_id} phone={b.pay_phone} amount={entry.amount} payee={b.payee_name} />
 
           <div className="chalk-rule my-6" />
 

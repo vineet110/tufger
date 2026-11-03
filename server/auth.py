@@ -10,17 +10,21 @@ from datetime import datetime, timedelta, timezone
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
-from config import get_settings
+from config import get_settings, ini
 from db import get_db
+from logger import get_logger, set_host
 from models import Host, LoginThrottle, SiteConfig
 
 settings = get_settings()
+log = get_logger(__name__)
 
 PBKDF2_ROUNDS = 200_000
-MAX_FAILED_LOGINS = 5
-LOCK_MINUTES = 10
-NETWORK_MAX_FAILS = 10  # per network address
-NETWORK_WINDOW_MINUTES = 15
+# tunable in config.ini → [auth]
+TOKEN_TTL_DAYS = ini().int("auth", "token_ttl_days", 30)
+MAX_FAILED_LOGINS = ini().int("auth", "max_failed_logins", 5)
+LOCK_MINUTES = ini().int("auth", "lock_minutes", 10)
+NETWORK_MAX_FAILS = ini().int("auth", "network_max_fails", 10)  # per network address
+NETWORK_WINDOW_MINUTES = ini().int("auth", "network_window_minutes", 15)
 PASSCODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O or 1/I mix-ups
 PREMIUM_ROLES = ("admin", "premium")
 
@@ -58,7 +62,7 @@ def _sign(payload: str) -> str:
 
 
 def issue_token(host: Host) -> str:
-    expires = int(time.time()) + settings.token_ttl_days * 86400
+    expires = int(time.time()) + TOKEN_TTL_DAYS * 86400
     payload = f"h:{host.id}:{host.token_version}:{expires}"
     return base64.urlsafe_b64encode(payload.encode()).decode() + "." + _sign(payload)
 
@@ -79,6 +83,7 @@ def current_host(authorization: str = Header(default=""), db: Session = Depends(
     # a password change or deactivation bumps/blocks the account, which ends old sessions
     if host is None or not host.active or host.token_version != int(version):
         raise unauthorized
+    set_host(host.id)
     return host
 
 
@@ -116,9 +121,11 @@ def check_login(db: Session, host: Host | None, password: str, field: str = "pas
         raise HTTPException(429, f"Too many wrong tries. Try again in {minutes} min")
     if not verify_password(password, getattr(host, field)):
         host.failed_logins += 1
+        log.warning("Wrong %s for @%s (%s in a row)", field.removesuffix("_hash"), host.username, host.failed_logins)
         if host.failed_logins >= MAX_FAILED_LOGINS:
             host.failed_logins = 0
             host.locked_until = _now() + timedelta(minutes=LOCK_MINUTES)
+            log.warning("@%s locked for %s min", host.username, LOCK_MINUTES)
         db.commit()
         raise wrong
     if not host.active:
@@ -126,6 +133,8 @@ def check_login(db: Session, host: Host | None, password: str, field: str = "pas
     host.failed_logins = 0
     host.locked_until = None
     db.commit()
+    set_host(host.id)
+    log.info("@%s signed in", host.username)
     return host
 
 
@@ -138,6 +147,7 @@ def client_ip(forwarded_for: str | None, fallback: str | None) -> str:
 def check_throttle(db: Session, ip: str) -> None:
     row = db.get(LoginThrottle, ip)
     if row and row.fails >= NETWORK_MAX_FAILS and _aware(row.window_start) > _now() - timedelta(minutes=NETWORK_WINDOW_MINUTES):
+        log.warning("Network %s blocked after %s wrong tries", ip, row.fails)
         raise HTTPException(429, f"Too many wrong tries from this network. Try again in {NETWORK_WINDOW_MINUTES} min")
 
 

@@ -76,6 +76,7 @@ class AppSettings(Base):
     organizer_name: Mapped[str] = mapped_column(String(80), default="Organiser")
     upi_id: Mapped[str] = mapped_column(String(120), default="")
     payee_name: Mapped[str] = mapped_column(String(80), default="")
+    pay_phone: Mapped[str] = mapped_column(String(20), default="")  # UPI-linked mobile players can pay to instead
     reminder_template: Mapped[str] = mapped_column(Text, default=DEFAULT_REMINDER)
     house_refunds: Mapped[str] = mapped_column(Text, default="")  # one rule per line; "" = Tufger defaults
     house_last_minute: Mapped[str] = mapped_column(Text, default="")
@@ -157,6 +158,8 @@ class Booking(Base):
     discount: Mapped[int] = mapped_column(Integer, default=0)
     discount_note: Mapped[str] = mapped_column(String(120), default="")
     total_amount: Mapped[int] = mapped_column(Integer)
+    # premium: the total players see on the pay page instead of the real one (None = show the real total)
+    display_total: Mapped[int | None] = mapped_column(Integer, nullable=True)
     round_to: Mapped[int] = mapped_column(Integer, default=1)
     notes: Mapped[str] = mapped_column(Text, default="")
     archived: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -204,3 +207,22 @@ class Event(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     booking: Mapped[Booking] = relationship(back_populates="events")
+
+
+class AppLog(Base):
+    """Saved log lines (see logger.py). Kept for config.ini → [logging] retention_days."""
+
+    __tablename__ = "app_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    level: Mapped[str] = mapped_column(String(10), index=True)
+    logger: Mapped[str] = mapped_column(String(60))
+    message: Mapped[str] = mapped_column(Text)
+    method: Mapped[str] = mapped_column(String(10), default="")
+    path: Mapped[str] = mapped_column(String(300), default="")
+    status: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ip: Mapped[str] = mapped_column(String(64), default="")
+    host_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)  # who was signed in, if anyone
+    request_id: Mapped[str] = mapped_column(String(32), default="")

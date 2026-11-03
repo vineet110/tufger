@@ -3,8 +3,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 import schemas
+from logger import get_logger
 from models import AppSettings, Booking, Entry, Event, Player
 from roster import clean_name, mobile_phone, name_key, normalize_phone
+
+
+_events = get_logger("booking")
 
 
 def get_app_settings(db: Session, host_id: int) -> AppSettings:
@@ -21,7 +25,9 @@ def get_app_settings(db: Session, host_id: int) -> AppSettings:
 
 
 def log(db: Session, booking: Booking, kind: str, message: str) -> None:
+    """Booking activity log (shown in the control room), mirrored into the app log."""
     db.add(Event(booking_id=booking.id, kind=kind, message=message))
+    _events.info("[booking %s %s] %s: %s", booking.id, booking.slug, kind, message)
 
 
 class NameTaken(Exception):
@@ -131,6 +137,7 @@ def booking_summary(b: Booking) -> schemas.BookingSummary:
         base_amount=b.base_amount or b.total_amount + b.discount,
         discount=b.discount,
         discount_note=b.discount_note,
+        display_total=b.display_total,
         archived=b.archived,
         created_at=b.created_at,
         tally=tally(b.entries),

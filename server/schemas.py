@@ -15,6 +15,7 @@ class SettingsIO(BaseModel):
     organizer_name: str = Field(max_length=80)
     upi_id: str = Field(default="", max_length=120)
     payee_name: str = Field(default="", max_length=80)
+    pay_phone: str = Field(default="", max_length=20)  # UPI-linked mobile, shown on pay pages to copy
     reminder_template: str = Field(max_length=2000)
     house_refunds: str = Field(default="", max_length=4000)  # one rule per line; "" = Tufger defaults
     house_last_minute: str = Field(default="", max_length=4000)
@@ -48,6 +49,7 @@ class BookingIn(BaseModel):
     is_weekend: bool = False
     discount: int = Field(default=0, ge=0)
     discount_note: str = Field(default="", max_length=120)
+    display_total: int | None = Field(default=None, gt=0)  # premium: total shown to players
     round_to: int = Field(default=1, ge=1)
     include_organizer: bool = False
     notes: str = ""
@@ -59,6 +61,7 @@ class BookingPatch(BaseModel):
     start_time: time | None = None
     duration_min: int | None = Field(default=None, ge=15)
     total_amount: int | None = Field(default=None, gt=0)
+    display_total: int | None = Field(default=None, gt=0)  # premium; send null to show the real total again
     notes: str | None = None
     archived: bool | None = None
 
@@ -108,6 +111,7 @@ class BookingSummary(BaseModel):
     base_amount: int
     discount: int
     discount_note: str
+    display_total: int | None
     archived: bool
     created_at: datetime
     tally: Tally
@@ -162,6 +166,8 @@ class PublicBooking(BaseModel):
     organizer_name: str
     upi_id: str
     payee_name: str
+    pay_phone: str
+    custom_total: bool  # total_amount is the host's shown total, not the sum of shares
     tally: Tally
     entries: list[PublicEntry]
 
@@ -269,6 +275,7 @@ class PublicBill(BaseModel):
     organizer_name: str
     upi_id: str
     payee_name: str
+    pay_phone: str
     lines: list[BillLine]
     extra_due: int
     due: int
@@ -399,3 +406,23 @@ class HostAdminResult(HostAdminRow):
 
 class PasscodeRegenIn(BaseModel):
     password: str = Field(min_length=1, max_length=200)
+
+
+class LogRow(BaseModel):
+    id: int
+    created_at: datetime
+    level: str
+    logger: str
+    message: str
+    method: str
+    path: str
+    status: int | None
+    duration_ms: int | None
+    ip: str
+    host_id: int | None
+    request_id: str
+
+
+class LogPage(BaseModel):
+    rows: list[LogRow]
+    next_before: int | None  # pass as ?before= for older rows

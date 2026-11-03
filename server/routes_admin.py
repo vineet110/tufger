@@ -7,10 +7,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 import schemas
-from auth import current_host
+from auth import PREMIUM_ROLES, current_host
 from db import get_db
 from models import Booking, Entry, Ground, Host, Player, utcnow
-from roster import normalize_phone, parse_sheet
+from roster import mobile_phone, normalize_phone, parse_sheet
 from services import (
     booking_detail,
     booking_summary,
@@ -57,6 +57,11 @@ def read_settings(host: Host = Depends(current_host), db: Session = Depends(get_
 @router.put("/settings", response_model=schemas.SettingsIO)
 def write_settings(body: schemas.SettingsIO, host: Host = Depends(current_host), db: Session = Depends(get_db)):
     row = get_app_settings(db, host.id)
+    if body.pay_phone.strip():
+        phone = mobile_phone(body.pay_phone)
+        if not phone:
+            raise HTTPException(400, "Pay-to number should be a 10-digit mobile number")
+        body.pay_phone = phone
     for key, value in body.model_dump().items():
         setattr(row, key, value)
     db.commit()
@@ -162,6 +167,7 @@ def create_booking(body: schemas.BookingIn, host: Host = Depends(current_host), 
         discount=body.discount,
         discount_note=body.discount_note.strip(),
         total_amount=total_amount,
+        display_total=body.display_total if host.role in PREMIUM_ROLES else None,
         round_to=body.round_to,
         notes=body.notes,
     )
@@ -191,10 +197,15 @@ def get_booking(booking_id: int, host: Host = Depends(current_host), db: Session
 def patch_booking(booking_id: int, body: schemas.BookingPatch, host: Host = Depends(current_host), db: Session = Depends(get_db)):
     booking = _load_model(db, host, booking_id)
     changes = body.model_dump(exclude_unset=True)
+    if "display_total" in changes and host.role not in PREMIUM_ROLES:
+        raise HTTPException(402, "Showing a custom total is a Premium feature. Ask the Tufger admin to upgrade you")
     for key, value in changes.items():
         setattr(booking, key, value)
     if "archived" in changes:
         log(db, booking, "archived", "Booking archived" if body.archived else "Booking restored")
+    elif changes.keys() == {"display_total"}:
+        shown = f"₹{body.display_total}" if body.display_total else "the real total"
+        log(db, booking, "edited", f"Players now see {shown} as the total")
     elif changes:
         log(db, booking, "edited", "Booking details updated")
     db.commit()

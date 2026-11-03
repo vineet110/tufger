@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 import schemas
+from auth import PREMIUM_ROLES
 from db import get_db
 from models import Booking, Entry, utcnow
 from services import get_app_settings, log, tally
@@ -25,6 +26,11 @@ def _booking(db: Session, slug: str) -> Booking:
 
 def _public(db: Session, booking: Booking) -> schemas.PublicBooking:
     s = get_app_settings(db, booking.host_id)
+    counts = tally(booking.entries)
+    # premium "shown total": players see this instead of the real ground amount and discount
+    shown = booking.display_total if booking.display_total and booking.host and booking.host.role in PREMIUM_ROLES else None
+    if shown:
+        counts.target = shown
     return schemas.PublicBooking(
         slug=booking.slug,
         ground_name=booking.ground_name,
@@ -33,15 +39,17 @@ def _public(db: Session, booking: Booking) -> schemas.PublicBooking:
         play_date=booking.play_date,
         start_time=booking.start_time,
         duration_min=booking.duration_min,
-        total_amount=booking.total_amount,
-        base_amount=booking.base_amount or booking.total_amount + booking.discount,
-        discount=booking.discount,
+        total_amount=shown or booking.total_amount,
+        base_amount=shown or booking.base_amount or booking.total_amount + booking.discount,
+        discount=0 if shown else booking.discount,
         notes=booking.notes,
         host_username=booking.host.username if booking.host else "",
         organizer_name=s.organizer_name,
         upi_id=s.upi_id,
         payee_name=s.payee_name or s.organizer_name,
-        tally=tally(booking.entries),
+        pay_phone=s.pay_phone,
+        custom_total=bool(shown),
+        tally=counts,
         entries=[
             schemas.PublicEntry(id=e.id, name=e.player.name, amount=e.amount, status=e.status, is_organizer=e.is_organizer)
             for e in booking.entries

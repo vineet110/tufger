@@ -25,8 +25,11 @@ from auth import (
 )
 from config import get_settings
 from db import SessionLocal, adopt_orphans, get_db
+from logger import get_logger
 from models import AppSettings, Booking, Host, Player, SiteConfig
 from services import get_app_settings
+
+log = get_logger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["accounts"])
 admin_router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_site_admin)])
@@ -144,6 +147,7 @@ def host_login(
 @router.post("/host/signup", response_model=schemas.TokenOut)
 def host_signup(body: schemas.HostSignupIn, db: Session = Depends(get_db)):
     host, _ = _new_host(db, body, "host")
+    log.info("New host signed up: @%s", host.username)
     return _token(host)
 
 
@@ -219,6 +223,7 @@ def list_hosts(db: Session = Depends(get_db)):
 def create_host(body: schemas.HostCreateIn, db: Session = Depends(get_db)):
     _admin_confirm(db, body.confirm)
     host, code = _new_host(db, body, body.role, body.passcode)
+    log.info("Admin created %s @%s", body.role, host.username)
     return _admin_row(db, host, code)
 
 
@@ -253,6 +258,8 @@ def update_host(host_id: int, body: schemas.HostPatch, db: Session = Depends(get
         h.failed_logins = 0
         h.locked_until = None
     db.commit()
+    changed = [k for k, v in body.model_dump(exclude={"confirm"}, exclude_unset=True).items() if v not in (None, False, "")]
+    log.info("Admin updated @%s: %s", h.username, ", ".join(changed) or "nothing")
     return _admin_row(db, h, code)
 
 
